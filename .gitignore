@@ -1,0 +1,6 @@
+target/
+.m2repo/
+.idea/
+.DS_Store
+.env
+*.log
