@@ -1,6 +1,8 @@
 package com.travelrisk.platform.controllers;
 
+import com.travelrisk.platform.service.AssessmentHistoryService;
 import com.travelrisk.platform.service.TravelRiskService;
+import java.security.Principal;
 import java.util.Map;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -14,9 +16,11 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 public class AnalyzeController {
   private final TravelRiskService service;
+  private final AssessmentHistoryService historyService;
 
-  public AnalyzeController(TravelRiskService service) {
+  public AnalyzeController(TravelRiskService service, AssessmentHistoryService historyService) {
     this.service = service;
+    this.historyService = historyService;
   }
 
   @GetMapping("/api/analyze")
@@ -26,8 +30,12 @@ public class AnalyzeController {
       @RequestParam String date,
       @RequestParam(defaultValue = "flight") String mode,
       @RequestParam(defaultValue = "") String originAirport,
-      @RequestParam(defaultValue = "") String destinationAirport) {
-    return service.analyze(origin, destination, date, mode, originAirport, destinationAirport);
+      @RequestParam(defaultValue = "") String destinationAirport,
+      Principal principal) {
+    TravelRiskService.Assessment assessment =
+        service.analyze(origin, destination, date, mode, originAirport, destinationAirport);
+    historyService.record(username(principal), assessment);
+    return assessment;
   }
 
   @PostMapping("/api/analyze/cache/refresh")
@@ -37,8 +45,12 @@ public class AnalyzeController {
       @RequestParam String date,
       @RequestParam(defaultValue = "flight") String mode,
       @RequestParam(defaultValue = "") String originAirport,
-      @RequestParam(defaultValue = "") String destinationAirport) {
-    return service.refreshAssessment(origin, destination, date, mode, originAirport, destinationAirport);
+      @RequestParam(defaultValue = "") String destinationAirport,
+      Principal principal) {
+    TravelRiskService.Assessment assessment =
+        service.refreshAssessment(origin, destination, date, mode, originAirport, destinationAirport);
+    historyService.record(username(principal), assessment);
+    return assessment;
   }
 
   @DeleteMapping("/api/analyze/cache")
@@ -65,5 +77,9 @@ public class AnalyzeController {
         : "Unexpected server error";
     return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
         .body(Map.of("error", message, "details", error.getMessage() == null ? "" : error.getMessage()));
+  }
+
+  private String username(Principal principal) {
+    return principal == null ? "anonymous" : principal.getName();
   }
 }

@@ -677,7 +677,7 @@ h1 {
 
 .admin-stats {
     display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
     gap: 10px;
     margin-bottom: 18px;
 }
@@ -738,6 +738,16 @@ h1 {
 
 .admin-table tr:last-child td {
     border-bottom: 0;
+}
+
+.admin-history-section {
+    margin-top: 20px;
+}
+
+.admin-history-section h3 {
+    margin: 0 0 10px;
+    color: var(--text-main);
+    font-size: 0.95rem;
 }
 
 .admin-table td strong,

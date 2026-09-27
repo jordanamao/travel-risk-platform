@@ -411,9 +411,13 @@ async function markNotificationRead(id) {
 async function loadAdminDashboard() {
   const button = document.querySelector("#refresh-admin-dashboard");
   const table = document.querySelector("#admin-trips");
+  const historyTable = document.querySelector("#admin-history");
   if (!table) return;
 
   table.innerHTML = `<tr><td colspan="6">Loading admin dashboard...</td></tr>`;
+  if (historyTable) {
+    historyTable.innerHTML = `<tr><td colspan="6">Loading assessment history...</td></tr>`;
+  }
   if (button) {
     button.disabled = true;
     button.textContent = "Refreshing...";
@@ -426,6 +430,9 @@ async function loadAdminDashboard() {
     renderAdminDashboard(data);
   } catch (error) {
     table.innerHTML = `<tr><td colspan="6">${error.message}</td></tr>`;
+    if (historyTable) {
+      historyTable.innerHTML = `<tr><td colspan="6">${error.message}</td></tr>`;
+    }
   } finally {
     if (button) {
       button.disabled = false;
@@ -440,7 +447,8 @@ function renderAdminDashboard(data) {
     stats.savedTrips || 0,
     stats.employees || 0,
     stats.highRiskTrips || 0,
-    stats.unreadAlerts || 0
+    stats.unreadAlerts || 0,
+    stats.historyRecords || 0
   ];
   document.querySelectorAll("#admin-stats strong").forEach((node, index) => {
     node.textContent = values[index];
@@ -452,6 +460,7 @@ function renderAdminDashboard(data) {
 
   if (!trips.length) {
     table.innerHTML = `<tr><td colspan="6">No employee trips have been saved yet.</td></tr>`;
+    renderAdminHistory(data.history || []);
     return;
   }
 
@@ -475,6 +484,42 @@ function renderAdminDashboard(data) {
     risk.className = `admin-risk ${riskLevel.toLowerCase()}`;
     risk.textContent = `${riskLevel}${trip.riskPoints !== null && trip.riskPoints !== undefined ? ` · ${trip.riskPoints} pts` : ""}`;
     row.children[5].textContent = formatNotificationTime(trip.updatedAt);
+    table.appendChild(row);
+  }
+
+  renderAdminHistory(data.history || []);
+}
+
+function renderAdminHistory(history) {
+  const table = document.querySelector("#admin-history");
+  if (!table) return;
+
+  table.innerHTML = "";
+  if (!history.length) {
+    table.innerHTML = `<tr><td colspan="6">No assessment history yet.</td></tr>`;
+    return;
+  }
+
+  for (const record of history) {
+    const row = document.createElement("tr");
+    const riskLevel = record.riskLevel || "Unscored";
+    row.innerHTML = `
+      <td></td>
+      <td><strong></strong><span></span></td>
+      <td></td>
+      <td></td>
+      <td><span class="admin-risk"></span></td>
+      <td></td>
+    `;
+    row.children[0].textContent = record.username;
+    row.children[1].querySelector("strong").textContent = `${record.origin} to ${record.destination}`;
+    row.children[1].querySelector("span").textContent = record.summary || "Assessment snapshot stored for review";
+    row.children[2].textContent = record.date;
+    row.children[3].textContent = tripTypeLabel(record.mode);
+    const risk = row.querySelector(".admin-risk");
+    risk.className = `admin-risk ${riskLevel.toLowerCase()}`;
+    risk.textContent = `${riskLevel}${record.riskPoints !== null && record.riskPoints !== undefined ? ` · ${record.riskPoints} pts` : ""}`;
+    row.children[5].textContent = formatNotificationTime(record.createdAt);
     table.appendChild(row);
   }
 }

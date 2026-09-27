@@ -1,6 +1,8 @@
 package com.travelrisk.platform.service;
 
+import com.travelrisk.platform.database.entities.AssessmentHistory;
 import com.travelrisk.platform.database.entities.SavedTrip;
+import com.travelrisk.platform.repository.AssessmentHistoryRepository;
 import com.travelrisk.platform.repository.SavedTripRepository;
 import com.travelrisk.platform.repository.TripNotificationRepository;
 import java.util.List;
@@ -9,12 +11,15 @@ import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class AdminDashboardService {
+  private final AssessmentHistoryRepository historyRepository;
   private final SavedTripRepository savedTripRepository;
   private final TripNotificationRepository notificationRepository;
 
   public AdminDashboardService(
+      AssessmentHistoryRepository historyRepository,
       SavedTripRepository savedTripRepository,
       TripNotificationRepository notificationRepository) {
+    this.historyRepository = historyRepository;
     this.savedTripRepository = savedTripRepository;
     this.notificationRepository = notificationRepository;
   }
@@ -22,12 +27,17 @@ public class AdminDashboardService {
   @Transactional(readOnly = true)
   public AdminDashboardResponse getDashboard() {
     List<SavedTrip> trips = savedTripRepository.findAllByOrderByTravelDateAscUpdatedAtDesc();
+    List<AssessmentHistory> history = historyRepository.findTop10ByOrderByCreatedAtDesc();
     AdminStats stats = new AdminStats(
         trips.size(),
         savedTripRepository.countDistinctUsers(),
         savedTripRepository.countByRiskLevelIgnoreCase("High"),
-        notificationRepository.countByReadAtIsNull());
-    return new AdminDashboardResponse(stats, trips.stream().map(this::toResponse).toList());
+        notificationRepository.countByReadAtIsNull(),
+        historyRepository.count());
+    return new AdminDashboardResponse(
+        stats,
+        trips.stream().map(this::toResponse).toList(),
+        history.stream().map(this::toResponse).toList());
   }
 
   private AdminTripResponse toResponse(SavedTrip trip) {
@@ -44,15 +54,31 @@ public class AdminDashboardService {
         trip.getUpdatedAt().toString());
   }
 
+  private AssessmentHistoryResponse toResponse(AssessmentHistory history) {
+    return new AssessmentHistoryResponse(
+        history.getId(),
+        history.getUsername(),
+        history.getOrigin(),
+        history.getDestination(),
+        history.getTravelDate().toString(),
+        history.getMode(),
+        history.getRiskLevel(),
+        history.getRiskPoints(),
+        history.getSummary(),
+        history.getCreatedAt().toString());
+  }
+
   public record AdminDashboardResponse(
       AdminStats stats,
-      List<AdminTripResponse> trips) {}
+      List<AdminTripResponse> trips,
+      List<AssessmentHistoryResponse> history) {}
 
   public record AdminStats(
       long savedTrips,
       long employees,
       long highRiskTrips,
-      long unreadAlerts) {}
+      long unreadAlerts,
+      long historyRecords) {}
 
   public record AdminTripResponse(
       Long id,
@@ -65,4 +91,16 @@ public class AdminDashboardService {
       Integer riskPoints,
       String summary,
       String updatedAt) {}
+
+  public record AssessmentHistoryResponse(
+      Long id,
+      String username,
+      String origin,
+      String destination,
+      String date,
+      String mode,
+      String riskLevel,
+      Integer riskPoints,
+      String summary,
+      String createdAt) {}
 }
