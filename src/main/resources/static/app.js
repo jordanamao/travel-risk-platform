@@ -562,9 +562,11 @@ function renderAdminHistory(history) {
 
 function renderAdminMonitoring(monitoring) {
   const table = document.querySelector("#admin-monitoring");
+  const count = document.querySelector("#admin-monitoring-metric-count");
   if (!table) return;
 
   const metrics = monitoring.metrics || [];
+  if (count) count.textContent = metrics.length;
   table.innerHTML = "";
   if (!metrics.length) {
     table.innerHTML = `<tr><td colspan="6">No API monitoring data yet.</td></tr>`;
@@ -594,7 +596,9 @@ function renderAdminMonitoring(monitoring) {
 
 function renderAdminMonitoringEvents(events) {
   const table = document.querySelector("#admin-monitoring-events");
+  const count = document.querySelector("#admin-monitoring-event-count");
   if (!table) return;
+  if (count) count.textContent = events.length;
 
   table.innerHTML = "";
   if (!events.length) {

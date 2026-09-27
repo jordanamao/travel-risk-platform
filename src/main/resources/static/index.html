@@ -98,43 +98,55 @@
   </div>
   <div class="admin-history-section">
     <h3>API monitoring</h3>
-    <div class="admin-table-shell">
-      <table class="admin-table">
-        <thead>
-        <tr>
-          <th>Operation</th>
-          <th>Calls</th>
-          <th>Failures</th>
-          <th>Slow calls</th>
-          <th>Avg</th>
-          <th>Max</th>
-        </tr>
-        </thead>
-        <tbody id="admin-monitoring">
-        <tr>
-          <td colspan="6">No API monitoring data yet.</td>
-        </tr>
-        </tbody>
-      </table>
-    </div>
-    <div class="admin-table-shell admin-events-shell">
-      <table class="admin-table">
-        <thead>
-        <tr>
-          <th>Event</th>
-          <th>Operation</th>
-          <th>Duration</th>
-          <th>Error</th>
-          <th>Recorded</th>
-        </tr>
-        </thead>
-        <tbody id="admin-monitoring-events">
-        <tr>
-          <td colspan="5">No slow or failed API calls yet.</td>
-        </tr>
-        </tbody>
-      </table>
-    </div>
+    <details class="admin-events-details">
+      <summary>
+        <span>API monitoring metrics</span>
+        <strong id="admin-monitoring-metric-count">0</strong>
+      </summary>
+      <div class="admin-table-shell admin-events-shell">
+        <table class="admin-table">
+          <thead>
+          <tr>
+            <th>Operation</th>
+            <th>Calls</th>
+            <th>Failures</th>
+            <th>Slow calls</th>
+            <th>Avg</th>
+            <th>Max</th>
+          </tr>
+          </thead>
+          <tbody id="admin-monitoring">
+          <tr>
+            <td colspan="6">No API monitoring data yet.</td>
+          </tr>
+          </tbody>
+        </table>
+      </div>
+    </details>
+    <details class="admin-events-details">
+      <summary>
+        <span>Slow and failed API events</span>
+        <strong id="admin-monitoring-event-count">0</strong>
+      </summary>
+      <div class="admin-table-shell admin-events-shell">
+        <table class="admin-table">
+          <thead>
+          <tr>
+            <th>Event</th>
+            <th>Operation</th>
+            <th>Duration</th>
+            <th>Error</th>
+            <th>Recorded</th>
+          </tr>
+          </thead>
+          <tbody id="admin-monitoring-events">
+          <tr>
+            <td colspan="5">No slow or failed API calls yet.</td>
+          </tr>
+          </tbody>
+        </table>
+      </div>
+    </details>
   </div>
 </section>
 <main class="shell">
@@ -299,12 +311,12 @@
           <div id="score-breakdown" class="score-breakdown"></div>
         </div>
 
-        <div class="why-summary">
-          <h3>Why this risk level?</h3>
+        <details class="why-summary">
+          <summary>Why this risk level?</summary>
           <ul id="why-list"></ul>
           <p id="score-math" class="score-math"></p>
           <p class="point-rules">Rules: High = 6, Medium = 3, Low = 1. Flight-focused airport issues add +1.</p>
-        </div>
+        </details>
 
         <div class="recommendation">
           <div class="recommendation-main">
