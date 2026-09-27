@@ -487,6 +487,13 @@ h1 {
     line-height: 1.2;
 }
 
+.saved-trips-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    justify-content: flex-end;
+}
+
 .saved-trips-header button,
 .saved-trip-delete {
     padding: 7px 9px;
@@ -503,6 +510,11 @@ h1 {
 .saved-trip-delete:hover {
     border-color: var(--border-hover);
     background: var(--bg-subtle);
+}
+
+.saved-trips-header button:disabled {
+    cursor: wait;
+    opacity: 0.65;
 }
 
 .saved-trips-list {
@@ -538,6 +550,82 @@ h1 {
 .saved-trip-main p {
     overflow: hidden;
     text-overflow: ellipsis;
+}
+
+.notifications-block {
+    margin-top: 16px;
+    padding-top: 14px;
+    border-top: 1px solid var(--border-color);
+}
+
+.notifications-heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 10px;
+}
+
+.notifications-heading h3 {
+    margin: 0;
+    color: var(--text-main);
+    font-size: 0.88rem;
+}
+
+.notifications-heading span {
+    color: var(--text-muted);
+    font-size: 0.72rem;
+    font-weight: 800;
+}
+
+.notifications-list {
+    display: grid;
+    gap: 8px;
+}
+
+.notification-item {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 8px;
+    align-items: start;
+    padding: 10px;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    background: var(--bg-card);
+}
+
+.notification-item.unread {
+    border-left: 4px solid var(--risk-medium);
+}
+
+.notification-item.read {
+    opacity: 0.72;
+}
+
+.notification-item strong {
+    display: block;
+    color: var(--text-main);
+    font-size: 0.8rem;
+}
+
+.notification-item p,
+.notification-item span {
+    display: block;
+    margin: 3px 0 0;
+    color: var(--text-muted);
+    font-size: 0.74rem;
+    line-height: 1.35;
+}
+
+.notification-item button {
+    padding: 6px 8px;
+    border: 1px solid var(--border-color);
+    border-radius: 7px;
+    background: var(--bg-card);
+    color: var(--text-main);
+    font-size: 0.7rem;
+    font-weight: 800;
+    cursor: pointer;
 }
 
 .saved-trip-main strong {

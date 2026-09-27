@@ -98,10 +98,22 @@
             <p class="eyebrow">SQL database</p>
             <h2>Saved trips</h2>
           </div>
-          <button type="button" id="refresh-saved-trips">Refresh</button>
+          <div class="saved-trips-actions">
+            <button type="button" id="check-alerts">Check alerts</button>
+            <button type="button" id="refresh-saved-trips">Refresh</button>
+          </div>
         </div>
         <div id="saved-trips" class="saved-trips-list">
           <p class="field-note">Saved assessments will appear here.</p>
+        </div>
+        <div class="notifications-block">
+          <div class="notifications-heading">
+            <h3>Notifications</h3>
+            <span id="notification-count">0 unread</span>
+          </div>
+          <div id="notifications" class="notifications-list">
+            <p class="field-note">No risk-change alerts yet.</p>
+          </div>
         </div>
       </section>
     </div>

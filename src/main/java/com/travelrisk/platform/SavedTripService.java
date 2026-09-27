@@ -12,10 +12,21 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class SavedTripService {
   private final SavedTripRepository repository;
+  private final TripNotificationRepository notificationRepository;
+  private final TripNotificationService notificationService;
+  private final TravelRiskService travelRiskService;
   private final ObjectMapper objectMapper;
 
-  public SavedTripService(SavedTripRepository repository, ObjectMapper objectMapper) {
+  public SavedTripService(
+      SavedTripRepository repository,
+      TripNotificationRepository notificationRepository,
+      TripNotificationService notificationService,
+      TravelRiskService travelRiskService,
+      ObjectMapper objectMapper) {
     this.repository = repository;
+    this.notificationRepository = notificationRepository;
+    this.notificationService = notificationService;
+    this.travelRiskService = travelRiskService;
     this.objectMapper = objectMapper;
   }
 
@@ -50,7 +61,36 @@ public class SavedTripService {
   public void delete(String username, Long id) {
     SavedTrip savedTrip = repository.findByIdAndUsername(id, username)
         .orElseThrow(() -> new IllegalArgumentException("Saved trip not found"));
+    notificationRepository.deleteByUsernameAndSavedTripId(username, id);
     repository.delete(savedTrip);
+  }
+
+  @Transactional
+  public AlertCheckResponse checkAlerts(String username) {
+    List<SavedTrip> trips = repository.findByUsernameOrderByTravelDateAscUpdatedAtDesc(username);
+    int changedCount = 0;
+    java.util.ArrayList<TripNotificationService.TripNotificationResponse> notifications = new java.util.ArrayList<>();
+
+    for (SavedTrip trip : trips) {
+      TravelRiskService.Assessment assessment = travelRiskService.analyze(
+          trip.getOrigin(),
+          trip.getDestination(),
+          trip.getTravelDate().toString(),
+          trip.getMode(),
+          trip.getOriginAirport(),
+          trip.getDestinationAirport());
+      if (!riskChanged(trip, assessment)) {
+        continue;
+      }
+
+      TripNotification notification = notificationRepository.save(new TripNotification(trip, assessment));
+      notifications.add(notificationService.toResponse(notification));
+      trip.updateFrom(assessment, writeAssessment(assessment));
+      repository.save(trip);
+      changedCount++;
+    }
+
+    return new AlertCheckResponse(trips.size(), changedCount, notifications);
   }
 
   private String writeAssessment(TravelRiskService.Assessment assessment) {
@@ -63,6 +103,11 @@ public class SavedTripService {
 
   private String cleanNullable(String value) {
     return value == null ? "" : value;
+  }
+
+  private boolean riskChanged(SavedTrip trip, TravelRiskService.Assessment assessment) {
+    return !java.util.Objects.equals(trip.getRiskLevel(), assessment.score().level())
+        || !java.util.Objects.equals(trip.getRiskPoints(), assessment.score().points());
   }
 
   private SavedTripResponse toResponse(SavedTrip trip) {
@@ -102,4 +147,9 @@ public class SavedTripService {
       String createdAt,
       String updatedAt,
       Map<String, Object> assessment) {}
+
+  public record AlertCheckResponse(
+      int checkedTrips,
+      int changedTrips,
+      List<TripNotificationService.TripNotificationResponse> notifications) {}
 }

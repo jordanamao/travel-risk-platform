@@ -33,6 +33,11 @@ public class SavedTripController {
     return service.save(principal.getName(), request.assessment());
   }
 
+  @PostMapping("/api/trips/alerts/check")
+  public SavedTripService.AlertCheckResponse checkAlerts(Principal principal) {
+    return service.checkAlerts(principal.getName());
+  }
+
   @DeleteMapping("/api/trips/{id}")
   public Map<String, String> delete(Principal principal, @PathVariable Long id) {
     service.delete(principal.getName(), id);

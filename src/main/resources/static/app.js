@@ -266,7 +266,9 @@ function setupResultActions() {
 
 function setupSavedTrips() {
   document.querySelector("#refresh-saved-trips").addEventListener("click", loadSavedTrips);
+  document.querySelector("#check-alerts").addEventListener("click", checkAlerts);
   loadSavedTrips();
+  loadNotifications();
 }
 
 async function saveLatestTrip() {
@@ -315,6 +317,95 @@ async function loadSavedTrips() {
   }
 }
 
+async function checkAlerts() {
+  const button = document.querySelector("#check-alerts");
+  button.disabled = true;
+  button.textContent = "Checking...";
+
+  try {
+    const response = await fetch("/api/trips/alerts/check", { method: "POST" });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || "Unable to check alerts");
+    await loadSavedTrips();
+    await loadNotifications();
+    button.textContent = data.changedTrips ? `${data.changedTrips} changed` : "No changes";
+  } catch (error) {
+    button.textContent = "Check failed";
+  } finally {
+    setTimeout(() => {
+      button.disabled = false;
+      button.textContent = "Check alerts";
+    }, 1400);
+  }
+}
+
+async function loadNotifications() {
+  const container = document.querySelector("#notifications");
+  const count = document.querySelector("#notification-count");
+  container.innerHTML = `<p class="field-note">Loading notifications...</p>`;
+
+  try {
+    const response = await fetch("/api/notifications");
+    const notifications = await response.json();
+    if (!response.ok) throw new Error(notifications.error || "Unable to load notifications");
+    renderNotifications(notifications);
+    const unread = notifications.filter((item) => !item.read).length;
+    count.textContent = `${unread} unread`;
+  } catch (error) {
+    container.innerHTML = `<p class="error-inline">${error.message}</p>`;
+    count.textContent = "Unavailable";
+  }
+}
+
+function renderNotifications(notifications) {
+  const container = document.querySelector("#notifications");
+  container.innerHTML = "";
+
+  if (!notifications.length) {
+    container.innerHTML = `<p class="field-note">No risk-change alerts yet.</p>`;
+    return;
+  }
+
+  for (const notification of notifications.slice(0, 5)) {
+    const item = document.createElement("article");
+    item.className = `notification-item ${notification.read ? "read" : "unread"}`;
+    item.innerHTML = `
+      <div>
+        <strong></strong>
+        <p></p>
+        <span></span>
+      </div>
+      ${notification.read ? "" : `<button type="button">Mark read</button>`}
+    `;
+    item.querySelector("strong").textContent =
+        `${notification.origin} to ${notification.destination}`;
+    item.querySelector("p").textContent = notification.message;
+    item.querySelector("span").textContent =
+        `${notification.date} · ${formatNotificationTime(notification.createdAt)}`;
+    const button = item.querySelector("button");
+    if (button) {
+      button.addEventListener("click", () => markNotificationRead(notification.id));
+    }
+    container.appendChild(item);
+  }
+}
+
+async function markNotificationRead(id) {
+  const response = await fetch(`/api/notifications/${id}/read`, { method: "POST" });
+  if (response.ok) {
+    await loadNotifications();
+  }
+}
+
+function formatNotificationTime(value) {
+  return new Date(value).toLocaleString([], {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit"
+  });
+}
+
 function renderSavedTrips(trips) {
   const container = document.querySelector("#saved-trips");
   container.innerHTML = "";
@@ -354,9 +445,10 @@ function renderSavedTrips(trips) {
 }
 
 async function deleteSavedTrip(id) {
-  const response = await fetch(`/api/trips/${id}`, { method: "DELETE" });
+    const response = await fetch(`/api/trips/${id}`, { method: "DELETE" });
   if (response.ok) {
     await loadSavedTrips();
+    await loadNotifications();
   }
 }
 
