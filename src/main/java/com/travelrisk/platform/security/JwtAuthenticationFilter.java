@@ -1,4 +1,4 @@
-package com.travelrisk.platform;
+package com.travelrisk.platform.security;
 
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;

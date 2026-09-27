@@ -1,5 +1,6 @@
-package com.travelrisk.platform;
+package com.travelrisk.platform.controllers;
 
+import com.travelrisk.platform.service.TravelRiskService;
 import java.util.Map;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;

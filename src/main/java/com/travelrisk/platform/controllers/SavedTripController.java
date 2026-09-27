@@ -1,5 +1,7 @@
-package com.travelrisk.platform;
+package com.travelrisk.platform.controllers;
 
+import com.travelrisk.platform.service.SavedTripService;
+import com.travelrisk.platform.service.TravelRiskService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
 import java.security.Principal;

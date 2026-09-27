@@ -1,5 +1,6 @@
-package com.travelrisk.platform;
+package com.travelrisk.platform.database.entities;
 
+import com.travelrisk.platform.service.TravelRiskService;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;

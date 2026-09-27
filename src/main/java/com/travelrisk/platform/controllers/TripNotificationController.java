@@ -1,5 +1,6 @@
-package com.travelrisk.platform;
+package com.travelrisk.platform.controllers;
 
+import com.travelrisk.platform.service.TripNotificationService;
 import java.security.Principal;
 import java.util.List;
 import java.util.Map;

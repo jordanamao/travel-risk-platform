@@ -1,5 +1,6 @@
-package com.travelrisk.platform;
+package com.travelrisk.platform.repository;
 
+import com.travelrisk.platform.database.entities.TripNotification;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;

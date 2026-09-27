@@ -1,8 +1,12 @@
-package com.travelrisk.platform;
+package com.travelrisk.platform.service;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.travelrisk.platform.database.entities.SavedTrip;
+import com.travelrisk.platform.database.entities.TripNotification;
+import com.travelrisk.platform.repository.SavedTripRepository;
+import com.travelrisk.platform.repository.TripNotificationRepository;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;

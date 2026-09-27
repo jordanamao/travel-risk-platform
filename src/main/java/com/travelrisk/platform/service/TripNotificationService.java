@@ -1,5 +1,7 @@
-package com.travelrisk.platform;
+package com.travelrisk.platform.service;
 
+import com.travelrisk.platform.database.entities.TripNotification;
+import com.travelrisk.platform.repository.TripNotificationRepository;
 import java.util.List;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;

@@ -1,4 +1,4 @@
-package com.travelrisk.platform;
+package com.travelrisk.platform.service;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;

@@ -1,4 +1,4 @@
-package com.travelrisk.platform;
+package com.travelrisk.platform.controllers;
 
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;

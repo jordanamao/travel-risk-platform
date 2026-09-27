@@ -1,4 +1,4 @@
-package com.travelrisk.platform;
+package com.travelrisk.platform.config;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.time.Duration;
