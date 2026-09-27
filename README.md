@@ -60,6 +60,24 @@ mvn spring-boot:run
 
 The login page will use `/oauth2/authorization/google` for Google sign-in.
 
+## Redis Cache
+
+Repeated trip assessments are cached through Spring Cache. Local development uses the in-memory cache by default. To use Redis, run Redis locally or in production and start the app with:
+
+```bash
+export SPRING_CACHE_TYPE=redis
+export REDIS_HOST=localhost
+export REDIS_PORT=6379
+export REDIS_CACHE_TTL=10m
+mvn spring-boot:run
+```
+
+Cache behavior:
+
+- `GET /api/analyze` uses `@Cacheable` to reuse matching route/date assessments.
+- `POST /api/analyze/cache/refresh` uses `@CachePut` to recompute and replace one cached assessment.
+- `DELETE /api/analyze/cache` uses `@CacheEvict` to remove one cached assessment.
+
 ## Data Sources
 
 - OpenStreetMap Nominatim for geocoding

@@ -12,6 +12,9 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.regex.Pattern;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.CachePut;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
@@ -64,6 +67,7 @@ public class TravelRiskService {
     this.openAiModel = openAiModel;
   }
 
+  @Cacheable(value = "tripAssessments", key = "{#rawOrigin, #rawDestination, #rawDate, #rawMode, #rawOriginAirport, #rawDestinationAirport}", sync = true)
   public Assessment analyze(String rawOrigin, String rawDestination, String rawDate, String rawMode,
       String rawOriginAirport, String rawDestinationAirport) {
     String origin = clean(rawOrigin);
@@ -141,6 +145,17 @@ public class TravelRiskService {
             new Source("Open-Meteo Forecast API", "Hourly and daily weather forecast for origin, midpoint, and destination", "https://open-meteo.com/"),
             new Source("National Weather Service API", "Active alerts and official point forecasts", "https://www.weather.gov/documentation/services-web-api"),
             new Source("Aviation Weather Center API", "METAR airport weather observations near the route endpoints", "https://aviationweather.gov/data/api/")));
+  }
+
+  @CachePut(value = "tripAssessments", key = "{#rawOrigin, #rawDestination, #rawDate, #rawMode, #rawOriginAirport, #rawDestinationAirport}")
+  public Assessment refreshAssessment(String rawOrigin, String rawDestination, String rawDate, String rawMode,
+      String rawOriginAirport, String rawDestinationAirport) {
+    return analyze(rawOrigin, rawDestination, rawDate, rawMode, rawOriginAirport, rawDestinationAirport);
+  }
+
+  @CacheEvict(value = "tripAssessments", key = "{#rawOrigin, #rawDestination, #rawDate, #rawMode, #rawOriginAirport, #rawDestinationAirport}")
+  public void evictAssessment(String rawOrigin, String rawDestination, String rawDate, String rawMode,
+      String rawOriginAirport, String rawDestinationAirport) {
   }
 
   private GeoPoint geocode(String query) {

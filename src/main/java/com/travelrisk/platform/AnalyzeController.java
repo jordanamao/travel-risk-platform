@@ -3,8 +3,10 @@ package com.travelrisk.platform;
 import java.util.Map;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -25,6 +27,29 @@ public class AnalyzeController {
       @RequestParam(defaultValue = "") String originAirport,
       @RequestParam(defaultValue = "") String destinationAirport) {
     return service.analyze(origin, destination, date, mode, originAirport, destinationAirport);
+  }
+
+  @PostMapping("/api/analyze/cache/refresh")
+  public TravelRiskService.Assessment refreshAssessment(
+      @RequestParam String origin,
+      @RequestParam String destination,
+      @RequestParam String date,
+      @RequestParam(defaultValue = "flight") String mode,
+      @RequestParam(defaultValue = "") String originAirport,
+      @RequestParam(defaultValue = "") String destinationAirport) {
+    return service.refreshAssessment(origin, destination, date, mode, originAirport, destinationAirport);
+  }
+
+  @DeleteMapping("/api/analyze/cache")
+  public Map<String, String> evictAssessment(
+      @RequestParam String origin,
+      @RequestParam String destination,
+      @RequestParam String date,
+      @RequestParam(defaultValue = "flight") String mode,
+      @RequestParam(defaultValue = "") String originAirport,
+      @RequestParam(defaultValue = "") String destinationAirport) {
+    service.evictAssessment(origin, destination, date, mode, originAirport, destinationAirport);
+    return Map.of("status", "evicted");
   }
 
   @ExceptionHandler(IllegalArgumentException.class)
