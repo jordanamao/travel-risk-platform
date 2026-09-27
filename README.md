@@ -2,6 +2,15 @@
 
 Spring Boot version of the travel disruption risk app. It serves the existing dashboard UI and exposes the same `/api/analyze` contract from a Java backend.
 
+## Production Application
+
+- Live app: [https://travel-risk-platform.onrender.com](https://travel-risk-platform.onrender.com)
+- Login page: [https://travel-risk-platform.onrender.com/login](https://travel-risk-platform.onrender.com/login)
+- Demo username: `employee`
+- Demo password: `travel-risk-demo`
+
+The production deployment runs on Render with a managed Render Postgres database. Saved trips are persisted in the `saved_trips` table, and risk-change notifications are persisted in the `trip_notifications` table.
+
 ## Run Locally
 
 ```bash
@@ -101,10 +110,25 @@ Saved trip endpoints:
 - `GET /api/trips` lists trips for the signed-in user.
 - `POST /api/trips` saves the current assessment snapshot.
 - `DELETE /api/trips/{id}` removes one saved trip owned by the signed-in user.
+- `POST /api/trips/alerts/check` rechecks saved trips and creates a notification when risk changes.
+- `GET /api/notifications` lists risk-change notifications for the signed-in user.
 
 ## Deploy To Render
 
 This app can deploy to Render as a Docker web service. The included `render.yaml` uses the Dockerfile and keeps secrets out of Git.
+
+Current production URL:
+
+```text
+https://travel-risk-platform.onrender.com
+```
+
+Render resources:
+
+- Web service: `travel-risk-platform`
+- Postgres database: `travel-risk-platform-db`
+- Database name: `travelrisk`
+- Database tables: `saved_trips`, `trip_notifications`, `flyway_schema_history`
 
 Required Render environment variables:
 
