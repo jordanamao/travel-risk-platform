@@ -78,6 +78,38 @@ Cache behavior:
 - `POST /api/analyze/cache/refresh` uses `@CachePut` to recompute and replace one cached assessment.
 - `DELETE /api/analyze/cache` uses `@CacheEvict` to remove one cached assessment.
 
+## Deploy To Render
+
+This app can deploy to Render as a Docker web service. The included `render.yaml` uses the Dockerfile and keeps secrets out of Git.
+
+Required Render environment variables:
+
+```text
+TRAVEL_RISK_JWT_SECRET
+GOOGLE_CLIENT_ID
+GOOGLE_CLIENT_SECRET
+SPRING_CACHE_TYPE=simple
+```
+
+Optional:
+
+```text
+OPENAI_API_KEY
+OPENAI_MODEL=gpt-6-astra
+```
+
+After Render gives you a public URL, add its Google OAuth redirect URI in Google Cloud:
+
+```text
+https://your-render-domain.onrender.com/login/oauth2/code/google
+```
+
+If you add a custom domain later, also add:
+
+```text
+https://your-custom-domain.com/login/oauth2/code/google
+```
+
 ## Data Sources
 
 - OpenStreetMap Nominatim for geocoding

@@ -1,0 +1,20 @@
+services:
+  - type: web
+    name: travel-risk-platform
+    runtime: docker
+    plan: free
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /login
+    envVars:
+      - key: SPRING_CACHE_TYPE
+        value: simple
+      - key: TRAVEL_RISK_JWT_SECRET
+        generateValue: true
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: OPENAI_MODEL
+        value: gpt-6-astra
