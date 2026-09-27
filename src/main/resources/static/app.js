@@ -961,21 +961,26 @@ function renderSignals(signals) {
     return;
   }
 
-  for (const group of groupSignals(signals)) {
-    const heading = document.createElement("div");
-    heading.className = "evidence-group-heading";
-    heading.innerHTML = `
-      <h4></h4>
-      <p class="section-note"></p>
+  groupSignals(signals).forEach((group, index) => {
+    const wrapper = document.createElement("details");
+    wrapper.className = "evidence-group signal-group";
+    if (index === 0) wrapper.open = true;
+    wrapper.innerHTML = `
+      <summary>
+        <span class="summary-title"></span>
+        <span class="summary-description"></span>
+      </summary>
+      <div class="evidence-group-body"></div>
     `;
-    heading.querySelector("h4").textContent = group.title;
-    heading.querySelector("p").textContent = group.description;
-    container.appendChild(heading);
+    wrapper.querySelector(".summary-title").textContent = group.title;
+    wrapper.querySelector(".summary-description").textContent = group.description;
 
+    const body = wrapper.querySelector(".evidence-group-body");
     for (const signal of group.items) {
-      container.appendChild(createSignalCard(signal));
+      body.appendChild(createSignalCard(signal));
     }
-  }
+    container.appendChild(wrapper);
+  });
 }
 
 function createSignalCard(signal) {
