@@ -90,6 +90,7 @@ setupLocationComboboxes();
 setupAirportPreferences();
 setupResultActions();
 setupSavedTrips();
+setupAdminDashboard();
 
 form.addEventListener("submit", async (event) => {
   event.preventDefault();
@@ -271,6 +272,13 @@ function setupSavedTrips() {
   loadNotifications();
 }
 
+function setupAdminDashboard() {
+  const button = document.querySelector("#refresh-admin-dashboard");
+  if (!button) return;
+  button.addEventListener("click", loadAdminDashboard);
+  loadAdminDashboard();
+}
+
 async function saveLatestTrip() {
   if (!latestAssessment) return;
   const button = document.querySelector("#save-trip");
@@ -286,6 +294,7 @@ async function saveLatestTrip() {
     const data = await response.json();
     if (!response.ok) throw new Error(data.error || "Unable to save trip");
     await loadSavedTrips();
+    await loadAdminDashboard();
     button.textContent = "Saved";
   } catch (error) {
     button.textContent = "Save failed";
@@ -328,6 +337,7 @@ async function checkAlerts() {
     if (!response.ok) throw new Error(data.error || "Unable to check alerts");
     await loadSavedTrips();
     await loadNotifications();
+    await loadAdminDashboard();
     button.textContent = data.changedTrips ? `${data.changedTrips} changed` : "No changes";
   } catch (error) {
     button.textContent = "Check failed";
@@ -394,6 +404,78 @@ async function markNotificationRead(id) {
   const response = await fetch(`/api/notifications/${id}/read`, { method: "POST" });
   if (response.ok) {
     await loadNotifications();
+    await loadAdminDashboard();
+  }
+}
+
+async function loadAdminDashboard() {
+  const button = document.querySelector("#refresh-admin-dashboard");
+  const table = document.querySelector("#admin-trips");
+  if (!table) return;
+
+  table.innerHTML = `<tr><td colspan="6">Loading admin dashboard...</td></tr>`;
+  if (button) {
+    button.disabled = true;
+    button.textContent = "Refreshing...";
+  }
+
+  try {
+    const response = await fetch("/api/admin/dashboard");
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || "Unable to load admin dashboard");
+    renderAdminDashboard(data);
+  } catch (error) {
+    table.innerHTML = `<tr><td colspan="6">${error.message}</td></tr>`;
+  } finally {
+    if (button) {
+      button.disabled = false;
+      button.textContent = "Refresh dashboard";
+    }
+  }
+}
+
+function renderAdminDashboard(data) {
+  const stats = data.stats || {};
+  const values = [
+    stats.savedTrips || 0,
+    stats.employees || 0,
+    stats.highRiskTrips || 0,
+    stats.unreadAlerts || 0
+  ];
+  document.querySelectorAll("#admin-stats strong").forEach((node, index) => {
+    node.textContent = values[index];
+  });
+
+  const table = document.querySelector("#admin-trips");
+  table.innerHTML = "";
+  const trips = data.trips || [];
+
+  if (!trips.length) {
+    table.innerHTML = `<tr><td colspan="6">No employee trips have been saved yet.</td></tr>`;
+    return;
+  }
+
+  for (const trip of trips) {
+    const row = document.createElement("tr");
+    const riskLevel = trip.riskLevel || "Unscored";
+    row.innerHTML = `
+      <td></td>
+      <td><strong></strong><span></span></td>
+      <td></td>
+      <td></td>
+      <td><span class="admin-risk"></span></td>
+      <td></td>
+    `;
+    row.children[0].textContent = trip.username;
+    row.children[1].querySelector("strong").textContent = `${trip.origin} to ${trip.destination}`;
+    row.children[1].querySelector("span").textContent = trip.summary || "Saved assessment snapshot";
+    row.children[2].textContent = trip.date;
+    row.children[3].textContent = tripTypeLabel(trip.mode);
+    const risk = row.querySelector(".admin-risk");
+    risk.className = `admin-risk ${riskLevel.toLowerCase()}`;
+    risk.textContent = `${riskLevel}${trip.riskPoints !== null && trip.riskPoints !== undefined ? ` · ${trip.riskPoints} pts` : ""}`;
+    row.children[5].textContent = formatNotificationTime(trip.updatedAt);
+    table.appendChild(row);
   }
 }
 
@@ -449,6 +531,7 @@ async function deleteSavedTrip(id) {
   if (response.ok) {
     await loadSavedTrips();
     await loadNotifications();
+    await loadAdminDashboard();
   }
 }
 

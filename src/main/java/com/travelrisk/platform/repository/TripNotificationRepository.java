@@ -10,5 +10,7 @@ public interface TripNotificationRepository extends JpaRepository<TripNotificati
 
   Optional<TripNotification> findByIdAndUsername(Long id, String username);
 
+  long countByReadAtIsNull();
+
   void deleteByUsernameAndSavedTripId(String username, Long savedTripId);
 }

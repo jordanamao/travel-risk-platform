@@ -255,6 +255,54 @@
   </section>
 </main>
 
-<script src="/app.js?v=ops-polish"></script>
+<section class="admin-dashboard" aria-label="Admin dashboard">
+  <div class="admin-dashboard-header">
+    <div>
+      <p class="eyebrow">Operations admin</p>
+      <h2>Employee trip dashboard</h2>
+      <p class="section-note">Review saved trips across company users and spot high-risk travel that may need follow-up.</p>
+    </div>
+    <button type="button" id="refresh-admin-dashboard">Refresh dashboard</button>
+  </div>
+  <div id="admin-stats" class="admin-stats">
+    <article>
+      <span>Saved trips</span>
+      <strong>0</strong>
+    </article>
+    <article>
+      <span>Employees</span>
+      <strong>0</strong>
+    </article>
+    <article>
+      <span>High risk</span>
+      <strong>0</strong>
+    </article>
+    <article>
+      <span>Unread alerts</span>
+      <strong>0</strong>
+    </article>
+  </div>
+  <div class="admin-table-shell">
+    <table class="admin-table">
+      <thead>
+      <tr>
+        <th>Employee</th>
+        <th>Trip</th>
+        <th>Date</th>
+        <th>Type</th>
+        <th>Risk</th>
+        <th>Updated</th>
+      </tr>
+      </thead>
+      <tbody id="admin-trips">
+      <tr>
+        <td colspan="6">Loading admin dashboard...</td>
+      </tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<script src="/app.js?v=admin-dashboard"></script>
 </body>
 </html>
