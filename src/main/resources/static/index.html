@@ -46,6 +46,14 @@
       <span>History records</span>
       <strong>0</strong>
     </article>
+    <article>
+      <span>API failures</span>
+      <strong id="api-failures">0</strong>
+    </article>
+    <article>
+      <span>Slow calls</span>
+      <strong id="slow-api-calls">0</strong>
+    </article>
   </div>
   <div class="admin-table-shell">
     <table class="admin-table">
@@ -83,6 +91,46 @@
         <tbody id="admin-history">
         <tr>
           <td colspan="6">No assessment history yet.</td>
+        </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+  <div class="admin-history-section">
+    <h3>API monitoring</h3>
+    <div class="admin-table-shell">
+      <table class="admin-table">
+        <thead>
+        <tr>
+          <th>Operation</th>
+          <th>Calls</th>
+          <th>Failures</th>
+          <th>Slow calls</th>
+          <th>Avg</th>
+          <th>Max</th>
+        </tr>
+        </thead>
+        <tbody id="admin-monitoring">
+        <tr>
+          <td colspan="6">No API monitoring data yet.</td>
+        </tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="admin-table-shell admin-events-shell">
+      <table class="admin-table">
+        <thead>
+        <tr>
+          <th>Event</th>
+          <th>Operation</th>
+          <th>Duration</th>
+          <th>Error</th>
+          <th>Recorded</th>
+        </tr>
+        </thead>
+        <tbody id="admin-monitoring-events">
+        <tr>
+          <td colspan="5">No slow or failed API calls yet.</td>
         </tr>
         </tbody>
       </table>

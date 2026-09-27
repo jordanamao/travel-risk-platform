@@ -750,6 +750,10 @@ h1 {
     font-size: 0.95rem;
 }
 
+.admin-events-shell {
+    margin-top: 10px;
+}
+
 .admin-table td strong,
 .admin-table td span {
     display: block;

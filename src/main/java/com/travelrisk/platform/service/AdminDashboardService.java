@@ -2,6 +2,7 @@ package com.travelrisk.platform.service;
 
 import com.travelrisk.platform.database.entities.AssessmentHistory;
 import com.travelrisk.platform.database.entities.SavedTrip;
+import com.travelrisk.platform.monitoring.ApiMonitoringService;
 import com.travelrisk.platform.repository.AssessmentHistoryRepository;
 import com.travelrisk.platform.repository.SavedTripRepository;
 import com.travelrisk.platform.repository.TripNotificationRepository;
@@ -12,14 +13,17 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class AdminDashboardService {
   private final AssessmentHistoryRepository historyRepository;
+  private final ApiMonitoringService monitoringService;
   private final SavedTripRepository savedTripRepository;
   private final TripNotificationRepository notificationRepository;
 
   public AdminDashboardService(
       AssessmentHistoryRepository historyRepository,
+      ApiMonitoringService monitoringService,
       SavedTripRepository savedTripRepository,
       TripNotificationRepository notificationRepository) {
     this.historyRepository = historyRepository;
+    this.monitoringService = monitoringService;
     this.savedTripRepository = savedTripRepository;
     this.notificationRepository = notificationRepository;
   }
@@ -34,10 +38,12 @@ public class AdminDashboardService {
         savedTripRepository.countByRiskLevelIgnoreCase("High"),
         notificationRepository.countByReadAtIsNull(),
         historyRepository.count());
+    ApiMonitoringService.MonitoringSnapshot monitoring = monitoringService.snapshot();
     return new AdminDashboardResponse(
         stats,
         trips.stream().map(this::toResponse).toList(),
-        history.stream().map(this::toResponse).toList());
+        history.stream().map(this::toResponse).toList(),
+        monitoring);
   }
 
   private AdminTripResponse toResponse(SavedTrip trip) {
@@ -71,7 +77,8 @@ public class AdminDashboardService {
   public record AdminDashboardResponse(
       AdminStats stats,
       List<AdminTripResponse> trips,
-      List<AssessmentHistoryResponse> history) {}
+      List<AssessmentHistoryResponse> history,
+      ApiMonitoringService.MonitoringSnapshot monitoring) {}
 
   public record AdminStats(
       long savedTrips,
