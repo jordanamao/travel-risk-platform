@@ -123,16 +123,17 @@ async function readJsonResponse(response, fallbackMessage) {
   const body = await response.text();
 
   if (!contentType.includes("application/json")) {
-    if (response.redirected || response.url.includes("/login")) {
-      throw new Error("Your session may have expired. Sign in again, then retry.");
+    const htmlResponse = body.trim().startsWith("<");
+    if (response.redirected || response.url.includes("/login") || htmlResponse) {
+      throw new Error("We could not load this section. Your session may have expired, or the server is still restarting. Refresh the page and sign in again if needed.");
     }
-    throw new Error(`${fallbackMessage}. Server returned ${response.status} ${response.statusText || "non-JSON response"}.`);
+    throw new Error(`${fallbackMessage}. The server returned an unexpected response. Please refresh and try again.`);
   }
 
   try {
     return body ? JSON.parse(body) : {};
   } catch {
-    throw new Error(`${fallbackMessage}. Server returned invalid JSON.`);
+    throw new Error(`${fallbackMessage}. The server response could not be read. Please refresh and try again.`);
   }
 }
 
@@ -294,6 +295,7 @@ function setupAdminDashboard() {
   const button = document.querySelector("#refresh-admin-dashboard");
   if (!button) return;
   button.addEventListener("click", loadAdminDashboard);
+  document.querySelector("#clear-assessment-history")?.addEventListener("click", clearAssessmentHistory);
   loadAdminDashboard();
 }
 
@@ -679,6 +681,29 @@ async function deleteSavedTrip(id) {
     await loadSavedTrips();
     await loadNotifications();
     await loadAdminDashboard();
+  }
+}
+
+async function clearAssessmentHistory() {
+  const button = document.querySelector("#clear-assessment-history");
+  if (!button) return;
+
+  button.disabled = true;
+  button.textContent = "Clearing...";
+
+  try {
+    const response = await fetch("/api/admin/assessment-history", { method: "DELETE" });
+    const data = await readJsonResponse(response, "Unable to clear assessment history");
+    if (!response.ok) throw new Error(data.error || "Unable to clear assessment history");
+    await loadAdminDashboard();
+    button.textContent = data.deleted ? `Cleared ${data.deleted}` : "History clear";
+  } catch {
+    button.textContent = "Clear failed";
+  } finally {
+    setTimeout(() => {
+      button.disabled = false;
+      button.textContent = "Clear history";
+    }, 1400);
   }
 }
 

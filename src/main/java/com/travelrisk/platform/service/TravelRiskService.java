@@ -10,6 +10,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 import java.util.regex.Pattern;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cache.annotation.CacheEvict;
@@ -89,40 +90,23 @@ public class TravelRiskService {
         (originGeo.lon() + destinationGeo.lon()) / 2,
         "Calculated route midpoint");
 
-    Bundle originWeather = safeBundle(
-        () -> getOpenMeteo(originGeo, date, "Origin forecast"),
-        "Open-Meteo Forecast API",
-        "Origin forecast",
-        originGeo.label());
-    Bundle destinationWeather = safeBundle(
-        () -> getOpenMeteo(destinationGeo, date, "Destination forecast"),
-        "Open-Meteo Forecast API",
-        "Destination forecast",
-        destinationGeo.label());
-    Bundle midpointWeather = safeBundle(
-        () -> getOpenMeteo(midpoint, date, "Route midpoint forecast"),
-        "Open-Meteo Forecast API",
-        "Route midpoint forecast",
-        midpoint.label());
-    Bundle originNws = safeBundle(
-        () -> getNwsBundle(originGeo, "Origin NWS"),
-        "National Weather Service API",
-        "Origin NWS",
-        originGeo.label());
-    Bundle destinationNws = safeBundle(
-        () -> getNwsBundle(destinationGeo, "Destination NWS"),
-        "National Weather Service API",
-        "Destination NWS",
-        destinationGeo.label());
-    Bundle aviation = safeBundle(
-        () -> getAviationBundle(originGeo, destinationGeo, originAirport, destinationAirport),
-        "Aviation Weather Center API",
-        "Airport weather",
-        originGeo.label() + " and " + destinationGeo.label());
+    List<CompletableFuture<Bundle>> bundleFutures = List.of(
+        bundleFuture(() -> getOpenMeteo(originGeo, date, "Origin forecast"),
+            "Open-Meteo Forecast API", "Origin forecast", originGeo.label()),
+        bundleFuture(() -> getOpenMeteo(destinationGeo, date, "Destination forecast"),
+            "Open-Meteo Forecast API", "Destination forecast", destinationGeo.label()),
+        bundleFuture(() -> getOpenMeteo(midpoint, date, "Route midpoint forecast"),
+            "Open-Meteo Forecast API", "Route midpoint forecast", midpoint.label()),
+        bundleFuture(() -> getNwsBundle(originGeo, "Origin NWS"),
+            "National Weather Service API", "Origin NWS", originGeo.label()),
+        bundleFuture(() -> getNwsBundle(destinationGeo, "Destination NWS"),
+            "National Weather Service API", "Destination NWS", destinationGeo.label()),
+        bundleFuture(() -> getAviationBundle(originGeo, destinationGeo, originAirport, destinationAirport),
+            "Aviation Weather Center API", "Airport weather", originGeo.label() + " and " + destinationGeo.label()));
 
     List<Evidence> evidence = new ArrayList<>();
     List<Signal> signals = new ArrayList<>();
-    for (Bundle bundle : List.of(originWeather, destinationWeather, midpointWeather, originNws, destinationNws, aviation)) {
+    for (Bundle bundle : bundleFutures.stream().map(CompletableFuture::join).toList()) {
       evidence.addAll(bundle.evidence());
       signals.addAll(bundle.signals());
     }
@@ -455,6 +439,10 @@ public class TravelRiskService {
       return new Bundle(List.of(new Evidence(source, label, "unknown", label + " data unavailable",
           Map.of("location", location, "reason", error.getMessage()), "")), List.of());
     }
+  }
+
+  private CompletableFuture<Bundle> bundleFuture(BundleLoader loader, String source, String label, String location) {
+    return CompletableFuture.supplyAsync(() -> safeBundle(loader, source, label, location));
   }
 
   private Map<String, Object> getMap(String url) {

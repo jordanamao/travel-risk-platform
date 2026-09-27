@@ -1,6 +1,8 @@
 package com.travelrisk.platform.controllers;
 
 import com.travelrisk.platform.service.AdminDashboardService;
+import java.util.Map;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -15,5 +17,11 @@ public class AdminDashboardController {
   @GetMapping("/api/admin/dashboard")
   public AdminDashboardService.AdminDashboardResponse dashboard() {
     return service.getDashboard();
+  }
+
+  @DeleteMapping("/api/admin/assessment-history")
+  public Map<String, Long> clearAssessmentHistory() {
+    long deleted = service.clearAssessmentHistory();
+    return Map.of("deleted", deleted);
   }
 }

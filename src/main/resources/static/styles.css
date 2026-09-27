@@ -750,6 +750,38 @@ h1 {
     font-size: 0.95rem;
 }
 
+.admin-section-heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 10px;
+}
+
+.admin-section-heading h3 {
+    margin: 0;
+}
+
+.admin-section-heading button {
+    padding: 7px 9px;
+    border: 1px solid var(--risk-high-border);
+    border-radius: 7px;
+    background: var(--risk-high-bg);
+    color: var(--risk-high);
+    font-size: 0.74rem;
+    font-weight: 800;
+    cursor: pointer;
+}
+
+.admin-section-heading button:hover {
+    border-color: var(--risk-high);
+}
+
+.admin-section-heading button:disabled {
+    cursor: wait;
+    opacity: 0.65;
+}
+
 .admin-events-shell {
     margin-top: 10px;
 }

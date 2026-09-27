@@ -46,6 +46,13 @@ public class AdminDashboardService {
         monitoring);
   }
 
+  @Transactional
+  public long clearAssessmentHistory() {
+    long count = historyRepository.count();
+    historyRepository.deleteAllInBatch();
+    return count;
+  }
+
   private AdminTripResponse toResponse(SavedTrip trip) {
     return new AdminTripResponse(
         trip.getId(),
