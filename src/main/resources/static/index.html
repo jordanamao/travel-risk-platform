@@ -86,8 +86,24 @@
           <span class="field-note">Leave Auto selected to use the nearest airport observations.</span>
         </div>
 
-        <button type="submit">Assess trip risk</button>
+        <div class="form-actions">
+          <button type="submit">Assess trip risk</button>
+          <button type="button" id="save-trip" disabled>Save trip</button>
+        </div>
       </form>
+
+      <section class="saved-trips-panel" aria-label="Saved trips">
+        <div class="saved-trips-header">
+          <div>
+            <p class="eyebrow">SQL database</p>
+            <h2>Saved trips</h2>
+          </div>
+          <button type="button" id="refresh-saved-trips">Refresh</button>
+        </div>
+        <div id="saved-trips" class="saved-trips-list">
+          <p class="field-note">Saved assessments will appear here.</p>
+        </div>
+      </section>
     </div>
   </section>
 

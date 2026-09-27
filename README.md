@@ -78,6 +78,30 @@ Cache behavior:
 - `POST /api/analyze/cache/refresh` uses `@CachePut` to recompute and replace one cached assessment.
 - `DELETE /api/analyze/cache` uses `@CacheEvict` to remove one cached assessment.
 
+## SQL Saved Trips
+
+Saved trips are stored in SQL through Spring Data JPA and Flyway migrations. Local development uses an H2 database file at `./data/travel-risk` by default, while production should use a managed Postgres database.
+
+The included `render.yaml` creates a Render Postgres database named `travel-risk-platform-db` and passes its connection string to the web service as `DATABASE_URL`. The Docker entrypoint converts Render's `postgresql://...` URL into the JDBC settings Spring Boot expects.
+
+To connect Postgres, set JDBC environment variables before starting the app:
+
+```bash
+export JDBC_DATABASE_URL=jdbc:postgresql://host:5432/travelrisk
+export JDBC_DATABASE_USERNAME=travelrisk
+export JDBC_DATABASE_PASSWORD=your-password
+export JPA_DDL_AUTO=validate
+mvn spring-boot:run
+```
+
+Flyway creates the `saved_trips` table on first startup. Hibernate then validates the schema instead of changing it at runtime.
+
+Saved trip endpoints:
+
+- `GET /api/trips` lists trips for the signed-in user.
+- `POST /api/trips` saves the current assessment snapshot.
+- `DELETE /api/trips/{id}` removes one saved trip owned by the signed-in user.
+
 ## Deploy To Render
 
 This app can deploy to Render as a Docker web service. The included `render.yaml` uses the Dockerfile and keeps secrets out of Git.
@@ -88,6 +112,7 @@ Required Render environment variables:
 TRAVEL_RISK_JWT_SECRET
 GOOGLE_CLIENT_ID
 GOOGLE_CLIENT_SECRET
+DATABASE_URL
 SPRING_CACHE_TYPE=simple
 ```
 

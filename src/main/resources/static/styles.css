@@ -464,7 +464,114 @@ h1 {
     background: rgba(255, 255, 255, 0.72);
 }
 
-button[type="submit"] {
+.saved-trips-panel {
+    margin-top: 24px;
+    padding: 16px;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    background: rgba(255, 255, 255, 0.78);
+}
+
+.saved-trips-header {
+    display: flex;
+    align-items: start;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 12px;
+}
+
+.saved-trips-header h2 {
+    margin: 0;
+    color: var(--text-main);
+    font-size: 1rem;
+    line-height: 1.2;
+}
+
+.saved-trips-header button,
+.saved-trip-delete {
+    padding: 7px 9px;
+    border: 1px solid var(--border-color);
+    border-radius: 7px;
+    background: var(--bg-card);
+    color: var(--text-main);
+    font-size: 0.74rem;
+    font-weight: 800;
+    cursor: pointer;
+}
+
+.saved-trips-header button:hover,
+.saved-trip-delete:hover {
+    border-color: var(--border-hover);
+    background: var(--bg-subtle);
+}
+
+.saved-trips-list {
+    display: grid;
+    gap: 9px;
+}
+
+.saved-trip {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 8px;
+    align-items: start;
+    padding: 10px;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    background: var(--bg-card);
+}
+
+.saved-trip-main {
+    display: grid;
+    gap: 3px;
+    min-width: 0;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+.saved-trip-main strong,
+.saved-trip-main span,
+.saved-trip-main p {
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.saved-trip-main strong {
+    color: var(--text-main);
+    font-size: 0.84rem;
+    white-space: nowrap;
+}
+
+.saved-trip-main span {
+    color: var(--text-muted);
+    font-size: 0.72rem;
+    font-weight: 800;
+    white-space: nowrap;
+}
+
+.saved-trip-main p {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    margin: 0;
+    color: var(--text-muted);
+    font-size: 0.76rem;
+    line-height: 1.35;
+}
+
+.form-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-top: 8px;
+}
+
+button[type="submit"],
+#save-trip {
     background-color: var(--text-main);
     color: #ffffff;
     font-weight: 600;
@@ -475,13 +582,37 @@ button[type="submit"] {
     cursor: pointer;
     transition: all 0.2s ease;
     box-shadow: var(--shadow-sm);
-    margin-top: 8px;
 }
 
-button[type="submit"]:hover {
+button[type="submit"]:hover,
+#save-trip:hover {
     background-color: #1e293b;
     transform: translateY(-1px);
     box-shadow: var(--shadow-md);
+}
+
+#save-trip {
+    border: 1px solid var(--border-color);
+    background: var(--bg-card);
+    color: var(--text-main);
+}
+
+#save-trip:hover {
+    border-color: var(--border-hover);
+    background: var(--bg-subtle);
+}
+
+#save-trip:disabled {
+    cursor: not-allowed;
+    opacity: 0.55;
+    transform: none;
+    box-shadow: var(--shadow-sm);
+}
+
+@media (max-width: 500px) {
+    .form-actions {
+        grid-template-columns: 1fr;
+    }
 }
 
 /* Radar Container */
