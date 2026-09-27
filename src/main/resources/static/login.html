@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sign In | Employee Travel Risk Platform</title>
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body class="login-page">
+<main class="login-shell">
+  <section class="login-hero">
+    <p class="eyebrow">Employee Travel Risk Platform</p>
+    <h1>Sign In</h1>
+    <p class="lede">
+      Company access keeps route checks, risk evidence, and operational decisions inside the travel team.
+    </p>
+    <div class="login-proof">
+      <span>Weather alerts</span>
+      <span>Airport conditions</span>
+      <span>Risk scoring</span>
+    </div>
+  </section>
+
+  <section class="login-panel" aria-label="Sign in form">
+    <div>
+      <p class="eyebrow">Employee Travel Risk Platform</p>
+      <h2>Sign In</h2>
+      <p class="login-copy">Use your travel operations account to continue.</p>
+    </div>
+
+    <p class="login-alert error-message" data-visible-param="error">
+      The username or password was not recognized.
+    </p>
+    <p class="login-alert success-message" data-visible-param="logout">
+      You have been signed out.
+    </p>
+
+    <form class="login-form" method="post" action="/login">
+      <label>
+        Username
+        <input name="username" autocomplete="username" required autofocus />
+      </label>
+      <label>
+        Password
+        <input name="password" type="password" autocomplete="current-password" required />
+      </label>
+      <button type="submit">Sign in</button>
+    </form>
+
+    <div class="sso-divider"><span>or</span></div>
+    <a class="sso-button" href="/oauth2/authorization/google">Continue with Google</a>
+
+    <p class="login-demo-note">
+      Demo account: employee / travel-risk-demo
+    </p>
+  </section>
+</main>
+<script>
+  const params = new URLSearchParams(window.location.search);
+  document.querySelectorAll("[data-visible-param]").forEach((item) => {
+    item.hidden = !params.has(item.dataset.visibleParam);
+  });
+</script>
+</body>
+</html>
