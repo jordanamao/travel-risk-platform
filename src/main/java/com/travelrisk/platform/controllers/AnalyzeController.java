@@ -31,10 +31,13 @@ public class AnalyzeController {
       @RequestParam(defaultValue = "flight") String mode,
       @RequestParam(defaultValue = "") String originAirport,
       @RequestParam(defaultValue = "") String destinationAirport,
+      @RequestParam(defaultValue = "true") boolean recordHistory,
       Principal principal) {
     TravelRiskService.Assessment assessment =
         service.analyze(origin, destination, date, mode, originAirport, destinationAirport);
-    historyService.record(username(principal), assessment);
+    if (recordHistory) {
+      historyService.record(username(principal), assessment);
+    }
     return assessment;
   }
 
@@ -46,10 +49,13 @@ public class AnalyzeController {
       @RequestParam(defaultValue = "flight") String mode,
       @RequestParam(defaultValue = "") String originAirport,
       @RequestParam(defaultValue = "") String destinationAirport,
+      @RequestParam(defaultValue = "true") boolean recordHistory,
       Principal principal) {
     TravelRiskService.Assessment assessment =
         service.refreshAssessment(origin, destination, date, mode, originAirport, destinationAirport);
-    historyService.record(username(principal), assessment);
+    if (recordHistory) {
+      historyService.record(username(principal), assessment);
+    }
     return assessment;
   }
 

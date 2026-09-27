@@ -100,7 +100,7 @@ form.addEventListener("submit", async (event) => {
 
   try {
     const response = await fetch(`/api/analyze?${params}`);
-    const data = await response.json();
+    const data = await readJsonResponse(response, "Unable to analyze trip");
     if (!response.ok) {
       throw new Error(data.error || "Unable to analyze trip");
     }
@@ -117,6 +117,24 @@ form.addEventListener("submit", async (event) => {
     setState("error");
   }
 });
+
+async function readJsonResponse(response, fallbackMessage) {
+  const contentType = response.headers.get("content-type") || "";
+  const body = await response.text();
+
+  if (!contentType.includes("application/json")) {
+    if (response.redirected || response.url.includes("/login")) {
+      throw new Error("Your session may have expired. Sign in again, then retry.");
+    }
+    throw new Error(`${fallbackMessage}. Server returned ${response.status} ${response.statusText || "non-JSON response"}.`);
+  }
+
+  try {
+    return body ? JSON.parse(body) : {};
+  } catch {
+    throw new Error(`${fallbackMessage}. Server returned invalid JSON.`);
+  }
+}
 
 function setupLocationComboboxes() {
   const inputs = document.querySelectorAll("[data-location-input]");
@@ -291,7 +309,7 @@ async function saveLatestTrip() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ assessment: latestAssessment })
     });
-    const data = await response.json();
+    const data = await readJsonResponse(response, "Unable to save trip");
     if (!response.ok) throw new Error(data.error || "Unable to save trip");
     await loadSavedTrips();
     await loadAdminDashboard();
@@ -318,7 +336,7 @@ async function loadSavedTrips() {
 
   try {
     const response = await fetch("/api/trips");
-    const trips = await response.json();
+    const trips = await readJsonResponse(response, "Unable to load saved trips");
     if (!response.ok) throw new Error(trips.error || "Unable to load saved trips");
     renderSavedTrips(trips);
   } catch (error) {
@@ -333,7 +351,7 @@ async function checkAlerts() {
 
   try {
     const response = await fetch("/api/trips/alerts/check", { method: "POST" });
-    const data = await response.json();
+    const data = await readJsonResponse(response, "Unable to check alerts");
     if (!response.ok) throw new Error(data.error || "Unable to check alerts");
     await loadSavedTrips();
     await loadNotifications();
@@ -356,7 +374,7 @@ async function loadNotifications() {
 
   try {
     const response = await fetch("/api/notifications");
-    const notifications = await response.json();
+    const notifications = await readJsonResponse(response, "Unable to load notifications");
     if (!response.ok) throw new Error(notifications.error || "Unable to load notifications");
     renderNotifications(notifications);
     const unread = notifications.filter((item) => !item.read).length;
@@ -433,7 +451,7 @@ async function loadAdminDashboard() {
 
   try {
     const response = await fetch("/api/admin/dashboard");
-    const data = await response.json();
+    const data = await readJsonResponse(response, "Unable to load admin dashboard");
     if (!response.ok) throw new Error(data.error || "Unable to load admin dashboard");
     renderAdminDashboard(data);
   } catch (error) {
@@ -801,8 +819,9 @@ async function runDateComparison({ automatic }) {
     const results = await Promise.all(dates.map(async (date) => {
       const params = new URLSearchParams(formData);
       params.set("date", date);
+      params.set("recordHistory", "false");
       const response = await fetch(`/api/analyze?${params}`);
-      const data = await response.json();
+      const data = await readJsonResponse(response, "Unable to compare dates");
       if (!response.ok) throw new Error(data.error || "Unable to compare dates");
       return data;
     }));
