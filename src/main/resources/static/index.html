@@ -379,6 +379,9 @@
           <h4>Glossary</h4>
           <div class="glossary-grid">
             <p><strong>METAR</strong><span>Stands for Meteorological Aerodrome Report. The app uses METAR in airport weather evidence and airport risk signals to read live visibility, clouds, wind, gusts, and VFR/MVFR/IFR status.</span></p>
+            <p><strong>VFR</strong><span>Visual Flight Rules. Good flying conditions. Pilots can generally see clearly enough to fly by visual reference.</span></p>
+            <p><strong>MVFR</strong><span>Marginal Visual Flight Rules. Reduced visibility or lower clouds. Conditions are not severe, but they require more caution because they are getting worse.</span></p>
+            <p><strong>IFR</strong><span>Instrument Flight Rules. Poor visibility or low clouds. Pilots rely more on instruments, and delays or cancellations are more likely.</span></p>
             <p><strong>NWS</strong><span>National Weather Service official U.S. weather alerts and forecasts.</span></p>
             <p><strong>Precipitation probability</strong><span>Chance that measurable rain or snow occurs during the forecast period.</span></p>
             <p><strong>Gust</strong><span>Wind is the steady speed. Gust is a short stronger burst. Gusts matter because sudden crosswinds can affect takeoff, landing, and high-profile vehicles.</span></p>
@@ -391,6 +394,12 @@
   </section>
 </main>
 
-<script src="/app.js?v=admin-dashboard"></script>
+<script src="/app-state.js?v=split-frontend"></script>
+<script src="/api.js?v=split-frontend"></script>
+<script src="/form-controls.js?v=split-frontend"></script>
+<script src="/trip-actions.js?v=split-frontend"></script>
+<script src="/admin-dashboard.js?v=split-frontend"></script>
+<script src="/results-rendering.js?v=split-frontend"></script>
+<script src="/app.js?v=split-frontend"></script>
 </body>
 </html>
