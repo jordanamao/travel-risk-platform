@@ -278,7 +278,8 @@ public class TravelRiskService {
       }
     } catch (Exception error) {
       evidence.add(new Evidence("National Weather Service API", label, "unknown",
-          "NWS data unavailable for " + point.label(), Map.of("error", error.getMessage()), "https://api.weather.gov/"));
+          "National Weather Service data could not be reached during this check.",
+          orderedMap("location", point.label(), "status", "Temporarily unavailable"), "https://api.weather.gov/"));
     }
     return new Bundle(evidence, signals);
   }
@@ -327,7 +328,8 @@ public class TravelRiskService {
       }
     } catch (Exception error) {
       evidence.add(new Evidence("FAA NAS Status API", "Airport delay and closure status", "unknown",
-          "FAA NAS airport status unavailable.", Map.of("error", error.getMessage()), url));
+          "FAA airport delay and closure data could not be reached during this check.",
+          orderedMap("status", "Temporarily unavailable", "nextStep", "Recheck this source before departure."), url));
     }
     return new Bundle(evidence, signals);
   }
@@ -373,7 +375,8 @@ public class TravelRiskService {
       return new Bundle(evidence, signals);
     } catch (Exception error) {
       return new Bundle(List.of(new Evidence("Road511 Traffic Data API", "Road closures", "unknown",
-          "Road511 road closure data unavailable.", Map.of("jurisdiction", jurisdiction, "error", error.getMessage()), url)), List.of());
+          "Road closure data could not be reached during this check.",
+          orderedMap("jurisdiction", jurisdiction, "status", "Temporarily unavailable", "nextStep", "Recheck route conditions before departure."), url)), List.of());
     }
   }
 
@@ -430,7 +433,8 @@ public class TravelRiskService {
       }
     } catch (Exception error) {
       evidence.add(new Evidence("Aviation Weather Center API", label, "unknown",
-          "Aviation weather unavailable near " + point.label(), Map.of("error", error.getMessage()), url));
+          "Airport weather observations could not be reached during this check.",
+          orderedMap("location", point.label(), "status", "Temporarily unavailable"), url));
     }
     return new Bundle(evidence, signals);
   }
@@ -639,7 +643,7 @@ public class TravelRiskService {
       return loader.load();
     } catch (Exception error) {
       return new Bundle(List.of(new Evidence(source, label, "unknown", label + " data unavailable",
-          Map.of("location", location, "reason", error.getMessage()), "")), List.of());
+          orderedMap("location", location, "status", "Temporarily unavailable"), "")), List.of());
     }
   }
 

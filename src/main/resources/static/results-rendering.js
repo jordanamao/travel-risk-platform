@@ -763,7 +763,7 @@ function summarizeDetails(details) {
 
 function summarizeObjectDetails(details) {
   return Object.entries(details)
-      .filter(([, value]) => value !== null && value !== undefined && value !== "")
+      .filter(([key, value]) => key !== "error" && key !== "reason" && value !== null && value !== undefined && value !== "")
       .slice(0, 8)
       .map(([key, value]) => `${labelize(key)}: ${String(value)}`)
       .join(" · ");
