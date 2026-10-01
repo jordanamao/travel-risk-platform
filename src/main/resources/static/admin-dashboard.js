@@ -10,6 +10,7 @@ function setupAdminDashboard() {
 }
 
 async function loadAdminDashboard() {
+  const dashboard = document.querySelector(".admin-dashboard");
   const button = document.querySelector("#refresh-admin-dashboard");
   const table = document.querySelector("#admin-trips");
   const historyTable = document.querySelector("#admin-history");
@@ -34,8 +35,13 @@ async function loadAdminDashboard() {
 
   try {
     const response = await fetch("/api/admin/dashboard");
+    if (response.status === 403) {
+      hideAdminDashboard();
+      return;
+    }
     const data = await readJsonResponse(response, "Unable to load admin dashboard");
     if (!response.ok) throw new Error(data.error || "Unable to load admin dashboard");
+    if (dashboard) dashboard.classList.remove("hidden");
     renderAdminDashboard(data);
   } catch (error) {
     table.innerHTML = `<tr><td colspan="6">${error.message}</td></tr>`;
@@ -54,6 +60,11 @@ async function loadAdminDashboard() {
       button.textContent = "Refresh dashboard";
     }
   }
+}
+
+function hideAdminDashboard() {
+  const dashboard = document.querySelector(".admin-dashboard");
+  if (dashboard) dashboard.classList.add("hidden");
 }
 
 function renderAdminDashboard(data) {

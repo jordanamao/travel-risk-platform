@@ -1,6 +1,9 @@
 package com.travelrisk.platform.config;
 
 import com.travelrisk.platform.security.JwtAuthenticationFilter;
+import jakarta.servlet.http.HttpServletResponse;
+import java.util.ArrayList;
+import java.util.List;
 import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
 import org.springframework.beans.factory.annotation.Value;
@@ -9,6 +12,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.core.userdetails.User;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -28,6 +32,7 @@ import com.nimbusds.jose.jwk.source.ImmutableSecret;
 import com.nimbusds.jose.proc.SecurityContext;
 
 @Configuration
+@EnableMethodSecurity
 public class SecurityConfig {
   @Bean
   SecurityFilterChain securityFilterChain(
@@ -38,6 +43,7 @@ public class SecurityConfig {
         .csrf(csrf -> csrf.disable())
         .authorizeHttpRequests(auth -> auth
             .requestMatchers("/login", "/login.html", "/styles.css", "/api/auth/**", "/oauth2/**", "/login/oauth2/**").permitAll()
+            .requestMatchers("/api/admin/**").hasRole("ADMIN")
             .anyRequest().authenticated())
         .formLogin(login -> login
             .loginPage("/login")
@@ -47,7 +53,20 @@ public class SecurityConfig {
             .logoutSuccessUrl("/login?logout")
             .permitAll())
         .exceptionHandling(exception -> exception
-            .authenticationEntryPoint(new LoginUrlAuthenticationEntryPoint("/login")))
+            .authenticationEntryPoint((request, response, authException) -> {
+              if (request.getRequestURI().startsWith("/api/")) {
+                response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                return;
+              }
+              new LoginUrlAuthenticationEntryPoint("/login").commence(request, response, authException);
+            })
+            .accessDeniedHandler((request, response, accessDeniedException) -> {
+              if (request.getRequestURI().startsWith("/api/")) {
+                response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+                return;
+              }
+              response.sendRedirect("/login");
+            }))
         .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
     if (clientRegistrations.getIfAvailable() != null) {
@@ -63,12 +82,22 @@ public class SecurityConfig {
   UserDetailsService userDetailsService(
       PasswordEncoder passwordEncoder,
       @Value("${travel-risk.security.username}") String username,
-      @Value("${travel-risk.security.password}") String password) {
+      @Value("${travel-risk.security.password}") String password,
+      @Value("${travel-risk.security.admin-username:}") String adminUsername,
+      @Value("${travel-risk.security.admin-password:}") String adminPassword) {
+    List<UserDetails> users = new ArrayList<>();
     UserDetails user = User.withUsername(username)
         .password(passwordEncoder.encode(password))
         .roles("USER")
         .build();
-    return new InMemoryUserDetailsManager(user);
+    users.add(user);
+    if (!adminUsername.isBlank() && !adminPassword.isBlank() && !adminUsername.equalsIgnoreCase(username)) {
+      users.add(User.withUsername(adminUsername)
+          .password(passwordEncoder.encode(adminPassword))
+          .roles("USER", "ADMIN")
+          .build());
+    }
+    return new InMemoryUserDetailsManager(users);
   }
 
   @Bean

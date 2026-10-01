@@ -6,8 +6,8 @@ Spring Boot version of the travel disruption risk app. It serves the existing da
 
 - Live app: [https://travel-risk-platform.onrender.com](https://travel-risk-platform.onrender.com)
 - Login page: [https://travel-risk-platform.onrender.com/login](https://travel-risk-platform.onrender.com/login)
-- Demo email: `employee@email.com`
-- Demo password: `travel-risk-demo`
+- Employee demo login: `employee@email.com` / `travel-risk-demo`
+- Admin login: set `TRAVEL_RISK_ADMIN_USERNAME` and `TRAVEL_RISK_ADMIN_PASSWORD`
 
 The production deployment runs on Render with a managed Render Postgres database. Saved trips are persisted in the `saved_trips` table, and risk-change notifications are persisted in the `trip_notifications` table.
 
@@ -30,11 +30,15 @@ export OPENAI_MODEL=gpt-6-astra
 
 ## Authentication
 
-The dashboard is protected by Spring Security. For local demos, sign in with `employee@email.com` / `travel-risk-demo`, or override the credentials:
+The dashboard is protected by Spring Security. Employee users can only see their own saved trips and notifications. Admin users can also see the company-wide dashboard, assessment history, and API monitoring views.
+
+For local demos, sign in as an employee with `employee@email.com` / `travel-risk-demo`. Configure an admin account with:
 
 ```bash
 export TRAVEL_RISK_USERNAME=your-user
 export TRAVEL_RISK_PASSWORD=your-password
+export TRAVEL_RISK_ADMIN_USERNAME=your-admin-user
+export TRAVEL_RISK_ADMIN_PASSWORD=your-strong-admin-password
 export TRAVEL_RISK_JWT_SECRET=replace-with-at-least-32-characters
 ```
 
