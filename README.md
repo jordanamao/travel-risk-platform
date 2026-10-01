@@ -6,7 +6,7 @@ Spring Boot version of the travel disruption risk app. It serves the existing da
 
 - Live app: [https://travel-risk-platform.onrender.com](https://travel-risk-platform.onrender.com)
 - Login page: [https://travel-risk-platform.onrender.com/login](https://travel-risk-platform.onrender.com/login)
-- Demo username: `employee`
+- Demo email: `employee@gmail.com`
 - Demo password: `travel-risk-demo`
 
 The production deployment runs on Render with a managed Render Postgres database. Saved trips are persisted in the `saved_trips` table, and risk-change notifications are persisted in the `trip_notifications` table.
@@ -30,7 +30,7 @@ export OPENAI_MODEL=gpt-6-astra
 
 ## Authentication
 
-The dashboard is protected by Spring Security. For local demos, sign in with `employee` / `travel-risk-demo`, or override the credentials:
+The dashboard is protected by Spring Security. For local demos, sign in with `employee@gmail.com` / `travel-risk-demo`, or override the credentials:
 
 ```bash
 export TRAVEL_RISK_USERNAME=your-user
@@ -43,7 +43,7 @@ API clients can request a JWT:
 ```bash
 curl -X POST http://localhost:8080/api/auth/token \
   -H "Content-Type: application/json" \
-  -d '{"username":"employee","password":"travel-risk-demo"}'
+  -d '{"username":"employee@gmail.com","password":"travel-risk-demo"}'
 ```
 
 Then call protected endpoints with `Authorization: Bearer <token>`.
