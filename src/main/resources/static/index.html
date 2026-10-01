@@ -308,7 +308,7 @@
 
         <div class="at-a-glance" aria-label="Assessment highlights">
           <h3>At a glance</h3>
-          <p class="score-flow">The assessment reviews live weather, alerts, and airport observations, then converts the risky findings into scored signals that determine the final risk level.</p>
+          <p class="score-flow">The assessment reviews weather, official alerts, airport observations, FAA airport operations, and configured road closure signals, then converts the risky findings into scored signals that determine the final risk level.</p>
           <div id="glance" class="glance-grid"></div>
           <div id="impact-split" class="impact-split"></div>
           <div id="score-breakdown" class="score-breakdown"></div>
@@ -334,11 +334,11 @@
             <p class="recommendation-label">Limits to know</p>
             <p id="uncertainty"></p>
             <div class="not-included">
-              <span>Not included</span>
+              <span>Expanded coverage</span>
               <ul>
-                <li>Airline-specific delays</li>
+                <li>FAA airport delays and closures</li>
+                <li>Road closures with ROAD511_API_KEY</li>
                 <li>Booked itinerary status</li>
-                <li>Road closures</li>
                 <li>Private company policy</li>
               </ul>
             </div>
@@ -382,6 +382,8 @@
             <p><strong>VFR</strong><span>Visual Flight Rules. Good flying conditions. Pilots can generally see clearly enough to fly by visual reference.</span></p>
             <p><strong>MVFR</strong><span>Marginal Visual Flight Rules. Reduced visibility or lower clouds. Conditions are not severe, but they require more caution because they are getting worse.</span></p>
             <p><strong>IFR</strong><span>Instrument Flight Rules. Poor visibility or low clouds. Pilots rely more on instruments, and delays or cancellations are more likely.</span></p>
+            <p><strong>FAA</strong><span>Federal Aviation Administration. In this app, FAA data means live U.S. airport operational status such as ground stops, delay programs, arrival/departure delays, and closures.</span></p>
+            <p><strong>NAS</strong><span>National Airspace System. The FAA NAS status feed reports current airport and airspace disruptions that can affect flight operations.</span></p>
             <p><strong>NWS</strong><span>National Weather Service official U.S. weather alerts and forecasts.</span></p>
             <p><strong>Precipitation probability</strong><span>Chance that measurable rain or snow occurs during the forecast period.</span></p>
             <p><strong>Gust</strong><span>Wind is the steady speed. Gust is a short stronger burst. Gusts matter because sudden crosswinds can affect takeoff, landing, and high-profile vehicles.</span></p>

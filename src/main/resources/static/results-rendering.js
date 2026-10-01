@@ -231,7 +231,11 @@ function renderScoreBreakdown(signals) {
     },
     {
       label: "Airports",
-      points: scoreCategory(signals, (signal) => signal.type === "aviation-weather")
+      points: scoreCategory(signals, (signal) => ["aviation-weather", "faa-airport-status"].includes(signal.type))
+    },
+    {
+      label: "Roads",
+      points: scoreCategory(signals, (signal) => signal.type === "road-closure")
     }
   ];
   const total = categories.reduce((sum, item) => sum + item.points, 0) || 1;

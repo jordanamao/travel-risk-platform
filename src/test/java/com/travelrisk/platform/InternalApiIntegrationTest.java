@@ -30,7 +30,7 @@ import org.springframework.web.util.UriComponentsBuilder;
         "spring.jpa.hibernate.ddl-auto=validate",
         "spring.flyway.enabled=true",
         "travel-risk.jwt.secret=test-secret-test-secret-test-secret-32",
-        "travel-risk.security.username=employee@gmail.com",
+        "travel-risk.security.username=employee@email.com",
         "travel-risk.security.password=travel-risk-demo"
     })
 class InternalApiIntegrationTest {
@@ -91,7 +91,7 @@ class InternalApiIntegrationTest {
     headers.setContentType(MediaType.APPLICATION_JSON);
     ResponseEntity<JsonNode> token = restTemplate.postForEntity(
         url("/api/auth/token"),
-        new HttpEntity<>(new LoginRequest("employee@gmail.com", "travel-risk-demo"), headers),
+        new HttpEntity<>(new LoginRequest("employee@email.com", "travel-risk-demo"), headers),
         JsonNode.class);
     assertThat(token.getStatusCode()).isEqualTo(HttpStatus.OK);
 

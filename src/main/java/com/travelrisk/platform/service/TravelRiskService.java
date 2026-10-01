@@ -2,6 +2,7 @@ package com.travelrisk.platform.service;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import java.io.StringReader;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
@@ -12,6 +13,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.regex.Pattern;
+import javax.xml.parsers.DocumentBuilderFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.CachePut;
@@ -22,6 +24,10 @@ import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.util.UriComponentsBuilder;
+import org.w3c.dom.Document;
+import org.w3c.dom.Element;
+import org.w3c.dom.NodeList;
+import org.xml.sax.InputSource;
 
 @Service
 public class TravelRiskService {
@@ -32,6 +38,7 @@ public class TravelRiskService {
   private final String userAgent;
   private final String openAiApiKey;
   private final String openAiModel;
+  private final String road511ApiKey;
 
   private final Map<String, GeoPoint> knownLocations = Map.ofEntries(
       city("new york, ny", "New York, NY, United States", 40.7128, -74.0060),
@@ -60,12 +67,14 @@ public class TravelRiskService {
       ObjectMapper objectMapper,
       @Value("${travel-risk.user-agent}") String userAgent,
       @Value("${travel-risk.openai.api-key}") String openAiApiKey,
-      @Value("${travel-risk.openai.model}") String openAiModel) {
+      @Value("${travel-risk.openai.model}") String openAiModel,
+      @Value("${travel-risk.road511.api-key:}") String road511ApiKey) {
     this.restClient = restClientBuilder.defaultHeader(HttpHeaders.USER_AGENT, userAgent).build();
     this.objectMapper = objectMapper;
     this.userAgent = userAgent;
     this.openAiApiKey = openAiApiKey;
     this.openAiModel = openAiModel;
+    this.road511ApiKey = road511ApiKey;
   }
 
   @Cacheable(value = "tripAssessments", key = "{#rawOrigin, #rawDestination, #rawDate, #rawMode, #rawOriginAirport, #rawDestinationAirport}", sync = true)
@@ -102,7 +111,11 @@ public class TravelRiskService {
         bundleFuture(() -> getNwsBundle(destinationGeo, "Destination NWS"),
             "National Weather Service API", "Destination NWS", destinationGeo.label()),
         bundleFuture(() -> getAviationBundle(originGeo, destinationGeo, originAirport, destinationAirport),
-            "Aviation Weather Center API", "Airport weather", originGeo.label() + " and " + destinationGeo.label()));
+            "Aviation Weather Center API", "Airport weather", originGeo.label() + " and " + destinationGeo.label()),
+        bundleFuture(() -> getFaaNasBundle(originGeo, destinationGeo, originAirport, destinationAirport),
+            "FAA NAS Status API", "Airport delay and closure status", originGeo.label() + " and " + destinationGeo.label()),
+        bundleFuture(() -> getRoad511Bundle(originGeo, destinationGeo),
+            "Road511 Traffic Data API", "Road closures", originGeo.label() + " and " + destinationGeo.label()));
 
     List<Evidence> evidence = new ArrayList<>();
     List<Signal> signals = new ArrayList<>();
@@ -128,7 +141,9 @@ public class TravelRiskService {
             new Source("OpenStreetMap Nominatim", "Geocodes user-entered route locations", "https://nominatim.openstreetmap.org/"),
             new Source("Open-Meteo Forecast API", "Hourly and daily weather forecast for origin, midpoint, and destination", "https://open-meteo.com/"),
             new Source("National Weather Service API", "Active alerts and official point forecasts", "https://www.weather.gov/documentation/services-web-api"),
-            new Source("Aviation Weather Center API", "METAR airport weather observations near the route endpoints", "https://aviationweather.gov/data/api/")));
+            new Source("Aviation Weather Center API", "METAR airport weather observations near the route endpoints", "https://aviationweather.gov/data/api/"),
+            new Source("FAA NAS Status API", "Live airport ground stops, delay programs, arrival/departure delays, and airport closures", "https://nasstatus.faa.gov/api/airport-status-information"),
+            new Source("Road511 Traffic Data API", "Optional live traffic incidents and closures when ROAD511_API_KEY is configured", "https://www.road511.com/docs.html")));
   }
 
   @CachePut(value = "tripAssessments", key = "{#rawOrigin, #rawDestination, #rawDate, #rawMode, #rawOriginAirport, #rawDestinationAirport}")
@@ -278,6 +293,90 @@ public class TravelRiskService {
     return new Bundle(evidence, signals);
   }
 
+  private Bundle getFaaNasBundle(GeoPoint origin, GeoPoint destination, String originAirport, String destinationAirport) {
+    List<Evidence> evidence = new ArrayList<>();
+    List<Signal> signals = new ArrayList<>();
+    Map<String, String> airports = orderedStringMap(
+        "Origin FAA airport status", airportIata(firstNonBlank(originAirport, defaultAirportFor(origin))),
+        "Destination FAA airport status", airportIata(firstNonBlank(destinationAirport, defaultAirportFor(destination))));
+    String url = "https://nasstatus.faa.gov/api/airport-status-information";
+    try {
+      Document document = parseXml(getString(url));
+      String updated = text(document.getDocumentElement(), "Update_Time");
+      for (Map.Entry<String, String> airport : airports.entrySet()) {
+        if (airport.getValue().isBlank()) {
+          evidence.add(new Evidence("FAA NAS Status API", airport.getKey(), "unknown",
+              "FAA NAS status skipped because no airport code was available.", Map.of("location", airport.getKey()), url));
+          continue;
+        }
+        List<FaaEvent> events = faaEventsForAirport(document, airport.getValue());
+        if (events.isEmpty()) {
+          evidence.add(new Evidence("FAA NAS Status API", airport.getKey(), "low",
+              airport.getValue() + ": no active FAA NAS delay, ground stop, or closure event.",
+              orderedMap("airport", airport.getValue(), "updated", updated), url));
+          continue;
+        }
+        for (FaaEvent event : events) {
+          evidence.add(new Evidence("FAA NAS Status API", airport.getKey(), event.severity(),
+              airport.getValue() + " " + event.kind() + ": " + event.summary(),
+              orderedMap("airport", airport.getValue(), "eventType", event.kind(), "details", event.details(), "updated", updated), url));
+          signals.add(new Signal("faa-airport-status", event.severity(),
+              airport.getKey() + " has FAA NAS " + event.kind().toLowerCase(Locale.ROOT) + " at " + airport.getValue() + ".",
+              event.summary()));
+        }
+      }
+    } catch (Exception error) {
+      evidence.add(new Evidence("FAA NAS Status API", "Airport delay and closure status", "unknown",
+          "FAA NAS airport status unavailable.", Map.of("error", error.getMessage()), url));
+    }
+    return new Bundle(evidence, signals);
+  }
+
+  private Bundle getRoad511Bundle(GeoPoint origin, GeoPoint destination) {
+    String jurisdiction = roadJurisdiction(origin, destination);
+    if (road511ApiKey == null || road511ApiKey.isBlank()) {
+      return new Bundle(List.of(new Evidence("Road511 Traffic Data API", "Road closures", "unknown",
+          "Road closure data not checked because ROAD511_API_KEY is not configured.",
+          orderedMap("jurisdiction", jurisdiction, "configuration", "Set ROAD511_API_KEY to enable live road closure checks."),
+          "https://www.road511.com/docs.html")), List.of());
+    }
+    String url = UriComponentsBuilder.fromUriString("https://api.road511.com/api/v1/events")
+        .queryParam("jurisdiction", jurisdiction)
+        .queryParam("limit", "10")
+        .toUriString();
+    try {
+      Map<String, Object> data = restClient.get()
+          .uri(url)
+          .accept(MediaType.APPLICATION_JSON)
+          .header("X-API-Key", road511ApiKey)
+          .retrieve()
+          .body(new ParameterizedTypeReference<>() {});
+      List<Evidence> evidence = new ArrayList<>();
+      List<Signal> signals = new ArrayList<>();
+      List<Map<String, Object>> events = listOfMaps(data == null ? null : data.get("data"));
+      if (events.isEmpty()) {
+        evidence.add(new Evidence("Road511 Traffic Data API", "Road closures", "low",
+            "No live Road511 incidents or closures returned for " + jurisdiction + ".",
+            orderedMap("jurisdiction", jurisdiction), url));
+      }
+      for (Map<String, Object> event : events) {
+        String type = string(event.get("type"));
+        String severity = roadSeverity(type, string(event.get("severity")));
+        String title = firstNonBlank(string(event.get("title")), string(event.get("description")), "Road event");
+        evidence.add(new Evidence("Road511 Traffic Data API", "Road closures", severity,
+            title, event, url));
+        if (List.of("medium", "high").contains(severity)) {
+          signals.add(new Signal("road-closure", severity,
+              "Road511 reports " + title + ".", firstNonBlank(string(event.get("description")), title)));
+        }
+      }
+      return new Bundle(evidence, signals);
+    } catch (Exception error) {
+      return new Bundle(List.of(new Evidence("Road511 Traffic Data API", "Road closures", "unknown",
+          "Road511 road closure data unavailable.", Map.of("jurisdiction", jurisdiction, "error", error.getMessage()), url)), List.of());
+    }
+  }
+
   private Bundle getNearestMetars(GeoPoint point, String label, String preferredIcao) {
     List<Evidence> evidence = new ArrayList<>();
     List<Signal> signals = new ArrayList<>();
@@ -334,6 +433,107 @@ public class TravelRiskService {
           "Aviation weather unavailable near " + point.label(), Map.of("error", error.getMessage()), url));
     }
     return new Bundle(evidence, signals);
+  }
+
+  private List<FaaEvent> faaEventsForAirport(Document document, String airport) {
+    List<FaaEvent> events = new ArrayList<>();
+    collectFaaEvents(document, events, "Program", airport, "Ground stop", "high", "Reason", "End_Time");
+    collectFaaEvents(document, events, "Ground_Delay", airport, "Ground delay program", "high", "Reason", "Avg", "Max");
+    collectFaaEvents(document, events, "Delay", airport, "Arrival/departure delay", "medium", "Reason");
+    collectFaaEvents(document, events, "Airport", airport, "Airport closure", "high", "Reason", "Start", "Reopen");
+    return events;
+  }
+
+  private void collectFaaEvents(Document document, List<FaaEvent> events, String tag, String airport, String kind,
+      String severity, String... detailTags) {
+    NodeList nodes = document.getElementsByTagName(tag);
+    for (int index = 0; index < nodes.getLength(); index += 1) {
+      if (!(nodes.item(index) instanceof Element element)) continue;
+      if (!airport.equalsIgnoreCase(text(element, "ARPT"))) continue;
+      Map<String, Object> details = new LinkedHashMap<>();
+      for (String detailTag : detailTags) {
+        String value = text(element, detailTag);
+        if (!value.isBlank()) details.put(detailTag, value);
+      }
+      NodeList arrivalDeparture = element.getElementsByTagName("Arrival_Departure");
+      if (arrivalDeparture.getLength() > 0 && arrivalDeparture.item(0) instanceof Element delay) {
+        details.put("type", delay.getAttribute("Type"));
+        details.put("min", text(delay, "Min"));
+        details.put("max", text(delay, "Max"));
+        details.put("trend", text(delay, "Trend"));
+      }
+      events.add(new FaaEvent(kind, severity, faaSummary(kind, details), details));
+    }
+  }
+
+  private String faaSummary(String kind, Map<String, Object> details) {
+    String reason = firstNonBlank(string(details.get("Reason")), string(details.get("reason")), "active event");
+    String avg = string(details.get("Avg"));
+    String max = firstNonBlank(string(details.get("Max")), string(details.get("max")));
+    String end = string(details.get("End_Time"));
+    String reopen = string(details.get("Reopen"));
+    if (!avg.isBlank() || !max.isBlank()) return kind + " due to " + reason + ", average " + firstNonBlank(avg, "unknown") + ", max " + firstNonBlank(max, "unknown");
+    if (!end.isBlank()) return kind + " due to " + reason + ", expected until " + end;
+    if (!reopen.isBlank()) return kind + " due to " + reason + ", reopen " + reopen;
+    return kind + " due to " + reason;
+  }
+
+  private String defaultAirportFor(GeoPoint point) {
+    String label = point.label().toLowerCase(Locale.ROOT);
+    if (label.contains("new york")) return "KJFK";
+    if (label.contains("san francisco")) return "KSFO";
+    if (label.contains("seattle")) return "KSEA";
+    if (label.contains("dallas")) return "KDFW";
+    if (label.contains("chicago")) return "KORD";
+    if (label.contains("los angeles")) return "KLAX";
+    if (label.contains("atlanta")) return "KATL";
+    if (label.contains("boston")) return "KBOS";
+    if (label.contains("denver")) return "KDEN";
+    if (label.contains("miami")) return "KMIA";
+    if (label.contains("washington")) return "KDCA";
+    if (label.contains("houston")) return "KIAH";
+    if (label.contains("phoenix")) return "KPHX";
+    if (label.contains("las vegas")) return "KLAS";
+    if (label.contains("orlando")) return "KMCO";
+    if (label.contains("philadelphia")) return "KPHL";
+    if (label.contains("minneapolis")) return "KMSP";
+    if (label.contains("charlotte")) return "KCLT";
+    if (label.contains("portland")) return "KPDX";
+    if (label.contains("austin")) return "KAUS";
+    return "";
+  }
+
+  private String airportIata(String airport) {
+    String cleaned = cleanAirport(airport);
+    if (cleaned.length() == 4 && cleaned.startsWith("K")) return cleaned.substring(1);
+    return cleaned.length() == 3 ? cleaned : "";
+  }
+
+  private String roadJurisdiction(GeoPoint origin, GeoPoint destination) {
+    String label = (origin.label() + " " + destination.label()).toLowerCase(Locale.ROOT);
+    if (label.contains("california") || label.contains(", ca")) return "CA";
+    if (label.contains("washington") || label.contains(", wa")) return "WA";
+    if (label.contains("texas") || label.contains(", tx")) return "TX";
+    if (label.contains("illinois") || label.contains(", il")) return "IL";
+    if (label.contains("new york") || label.contains(", ny")) return "NY";
+    if (label.contains("colorado") || label.contains(", co")) return "CO";
+    if (label.contains("florida") || label.contains(", fl")) return "FL";
+    if (label.contains("georgia") || label.contains(", ga")) return "GA";
+    if (label.contains("massachusetts") || label.contains(", ma")) return "MA";
+    if (label.contains("arizona") || label.contains(", az")) return "AZ";
+    if (label.contains("nevada") || label.contains(", nv")) return "NV";
+    if (label.contains("pennsylvania") || label.contains(", pa")) return "PA";
+    if (label.contains("minnesota") || label.contains(", mn")) return "MN";
+    if (label.contains("north carolina") || label.contains(", nc")) return "NC";
+    if (label.contains("oregon") || label.contains(", or")) return "OR";
+    return "CA";
+  }
+
+  private String roadSeverity(String type, String severity) {
+    String normalized = (type + " " + severity).toLowerCase(Locale.ROOT);
+    if (normalized.contains("closure") || normalized.contains("critical") || normalized.contains("major")) return "high";
+    if (normalized.contains("construction") || normalized.contains("incident") || normalized.contains("moderate")) return "medium";
+    return "low";
   }
 
   private Score scoreSignals(List<Signal> signals, String mode) {
@@ -415,7 +615,7 @@ public class TravelRiskService {
         ? context.score().level() + " disruption risk. No major risk signals were found in the current data sources."
         : context.score().level() + " disruption risk, driven by " + readableDriverText(topSignals) + ".";
     return new Synthesis(summary, recommendation,
-        "This platform combines live weather and aviation signals. It does not include airline-specific operations, booked flight status, road closures, or private corporate policies.",
+        "This platform combines live weather, aviation weather, FAA airport operations, and configured Road511 road closure signals. Booked itinerary status and private company policy still require customer-owned data connections.",
         Map.of("used", false, "provider", "local fallback"));
   }
 
@@ -424,6 +624,8 @@ public class TravelRiskService {
       if ("weather".equals(signal.type())) return "heavy precipitation forecast at the origin";
       if ("wind".equals(signal.type())) return "potentially disruptive wind";
       if ("aviation-weather".equals(signal.type())) return "airport weather conditions";
+      if ("faa-airport-status".equals(signal.type())) return "live FAA airport delay or closure status";
+      if ("road-closure".equals(signal.type())) return "live road closure or traffic incident data";
       if ("official-alert".equals(signal.type())) return "an active official weather alert";
       return signal.message().toLowerCase(Locale.ROOT);
     }).toList();
@@ -461,6 +663,28 @@ public class TravelRiskService {
         .header(HttpHeaders.USER_AGENT, userAgent)
         .retrieve()
         .body(new ParameterizedTypeReference<>() {});
+  }
+
+  private String getString(String url) {
+    return restClient.get()
+        .uri(url)
+        .accept(MediaType.APPLICATION_XML, MediaType.TEXT_XML, MediaType.TEXT_PLAIN)
+        .header(HttpHeaders.USER_AGENT, userAgent)
+        .retrieve()
+        .body(String.class);
+  }
+
+  private static Document parseXml(String xml) {
+    try {
+      DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
+      factory.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
+      factory.setFeature("http://xml.org/sax/features/external-general-entities", false);
+      factory.setFeature("http://xml.org/sax/features/external-parameter-entities", false);
+      factory.setExpandEntityReferences(false);
+      return factory.newDocumentBuilder().parse(new InputSource(new StringReader(xml)));
+    } catch (Exception error) {
+      throw new IllegalStateException("Unable to parse FAA NAS XML feed", error);
+    }
   }
 
   private void validateTravelDate(String date) {
@@ -541,6 +765,12 @@ public class TravelRiskService {
       if (value != null && !value.isBlank()) return value;
     }
     return "";
+  }
+
+  private static String text(Element element, String tagName) {
+    NodeList nodes = element.getElementsByTagName(tagName);
+    if (nodes.getLength() == 0 || nodes.item(0) == null) return "";
+    return firstNonBlank(nodes.item(0).getTextContent()).trim();
   }
 
   private static String displayValue(Object value) {
@@ -626,12 +856,22 @@ public class TravelRiskService {
     return map;
   }
 
+  private static Map<String, String> orderedStringMap(String... pairs) {
+    Map<String, String> map = new LinkedHashMap<>();
+    for (int index = 0; index < pairs.length - 1; index += 2) {
+      map.put(pairs[index], pairs[index + 1] == null ? "" : pairs[index + 1]);
+    }
+    return map;
+  }
+
   @FunctionalInterface
   private interface BundleLoader {
     Bundle load();
   }
 
   private record Bundle(List<Evidence> evidence, List<Signal> signals) {}
+
+  private record FaaEvent(String kind, String severity, String summary, Map<String, Object> details) {}
 
   private record SynthesisContext(GeoPoint origin, GeoPoint destination, String date, String mode, Score score,
       List<Signal> signals, List<Evidence> evidence) {}

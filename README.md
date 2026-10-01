@@ -6,7 +6,7 @@ Spring Boot version of the travel disruption risk app. It serves the existing da
 
 - Live app: [https://travel-risk-platform.onrender.com](https://travel-risk-platform.onrender.com)
 - Login page: [https://travel-risk-platform.onrender.com/login](https://travel-risk-platform.onrender.com/login)
-- Demo email: `employee@gmail.com`
+- Demo email: `employee@email.com`
 - Demo password: `travel-risk-demo`
 
 The production deployment runs on Render with a managed Render Postgres database. Saved trips are persisted in the `saved_trips` table, and risk-change notifications are persisted in the `trip_notifications` table.
@@ -30,7 +30,7 @@ export OPENAI_MODEL=gpt-6-astra
 
 ## Authentication
 
-The dashboard is protected by Spring Security. For local demos, sign in with `employee@gmail.com` / `travel-risk-demo`, or override the credentials:
+The dashboard is protected by Spring Security. For local demos, sign in with `employee@email.com` / `travel-risk-demo`, or override the credentials:
 
 ```bash
 export TRAVEL_RISK_USERNAME=your-user
@@ -43,7 +43,7 @@ API clients can request a JWT:
 ```bash
 curl -X POST http://localhost:8080/api/auth/token \
   -H "Content-Type: application/json" \
-  -d '{"username":"employee@gmail.com","password":"travel-risk-demo"}'
+  -d '{"username":"employee@email.com","password":"travel-risk-demo"}'
 ```
 
 Then call protected endpoints with `Authorization: Bearer <token>`.
@@ -145,7 +145,10 @@ Optional:
 ```text
 OPENAI_API_KEY
 OPENAI_MODEL=gpt-6-astra
+ROAD511_API_KEY
 ```
+
+`ROAD511_API_KEY` enables live road incident and closure checks. The FAA NAS airport status feed does not require an API key.
 
 After Render gives you a public URL, add its Google OAuth redirect URI in Google Cloud:
 
@@ -165,3 +168,5 @@ https://your-custom-domain.com/login/oauth2/code/google
 - Open-Meteo for forecasts
 - National Weather Service for official alerts and forecasts
 - Aviation Weather Center for METAR airport observations
+- FAA NAS Status API for live airport ground stops, delay programs, arrival/departure delays, and closures
+- Road511 Traffic Data API for road incidents and closures when `ROAD511_API_KEY` is configured
