@@ -187,6 +187,27 @@ body {
     box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
 }
 
+.login-form button[type="submit"] {
+    width: 100%;
+    min-height: 52px;
+    padding: 12px 18px;
+    border: none;
+    border-radius: var(--radius-sm);
+    background: var(--text-main);
+    color: #ffffff;
+    font-size: 0.95rem;
+    font-weight: 800;
+    cursor: pointer;
+    box-shadow: var(--shadow-sm);
+    transition: all 0.2s ease;
+}
+
+.login-form button[type="submit"]:hover {
+    background: #1e293b;
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-md);
+}
+
 .login-alert {
     margin-top: 16px;
     padding: 10px 12px;
@@ -895,17 +916,18 @@ h1 {
 
 .form-actions {
     display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 10px;
-    margin-top: 8px;
+    grid-template-columns: minmax(0, 1.35fr) minmax(0, 0.85fr);
+    align-items: stretch;
+    gap: 12px;
+    margin-top: 12px;
 }
 
-button[type="submit"],
+.form-actions button[type="submit"],
 #save-trip {
     background-color: var(--text-main);
     color: #ffffff;
-    font-weight: 600;
-    font-size: 0.875rem;
+    font-weight: 800;
+    font-size: 0.95rem;
     padding: 12px 18px;
     border: none;
     border-radius: var(--radius-sm);
@@ -914,17 +936,32 @@ button[type="submit"],
     box-shadow: var(--shadow-sm);
 }
 
-button[type="submit"]:hover,
+.form-actions button[type="submit"] {
+    min-height: 64px;
+    border: 2px solid #0f172a;
+    border-radius: var(--radius-md);
+    font-size: 1.14rem;
+    box-shadow: 0 14px 30px rgba(15, 23, 42, 0.2);
+}
+
+.form-actions button[type="submit"]:hover,
 #save-trip:hover {
     background-color: #1e293b;
     transform: translateY(-1px);
     box-shadow: var(--shadow-md);
 }
 
+.form-actions button[type="submit"]:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 18px 34px rgba(15, 23, 42, 0.26);
+}
+
 #save-trip {
+    min-height: 56px;
     border: 1px solid var(--border-color);
     background: var(--bg-card);
     color: var(--text-main);
+    font-size: 0.95rem;
 }
 
 #save-trip:hover {
@@ -942,6 +979,14 @@ button[type="submit"]:hover,
 @media (max-width: 500px) {
     .form-actions {
         grid-template-columns: 1fr;
+    }
+
+    .form-actions button[type="submit"] {
+        min-height: 62px;
+    }
+
+    #save-trip {
+        min-height: 52px;
     }
 }
 
@@ -975,11 +1020,12 @@ button[type="submit"]:hover,
 /* Header & Severity Cards */
 .risk-header {
     display: block;
-    padding: 24px;
+    padding: 30px;
     border-radius: var(--radius-md);
-    border: 1px solid var(--border-color);
+    border: 2px solid var(--border-color);
     background-color: var(--bg-app);
     margin-bottom: 28px;
+    box-shadow: 0 16px 34px rgba(15, 23, 42, 0.08);
 }
 
 .risk-status {
@@ -989,9 +1035,9 @@ button[type="submit"]:hover,
     margin-bottom: 18px;
 }
 
-.risk-header.high { background-color: var(--risk-high-bg); border-color: var(--risk-high-border); }
-.risk-header.medium { background-color: var(--risk-medium-bg); border-color: var(--risk-medium-border); }
-.risk-header.low { background-color: var(--risk-low-bg); border-color: var(--risk-low-border); }
+.risk-header.high { background-color: var(--risk-high-bg); border-color: var(--risk-high-border); box-shadow: 0 18px 38px rgba(220, 38, 38, 0.12); }
+.risk-header.medium { background-color: var(--risk-medium-bg); border-color: var(--risk-medium-border); box-shadow: 0 18px 38px rgba(217, 119, 6, 0.12); }
+.risk-header.low { background-color: var(--risk-low-bg); border-color: var(--risk-low-border); box-shadow: 0 18px 38px rgba(22, 163, 74, 0.12); }
 
 .risk-title-block {
     display: grid;
@@ -1002,7 +1048,7 @@ button[type="submit"]:hover,
 .risk-title-block h2 {
     margin: 0;
     color: var(--text-main);
-    font-size: 1.85rem;
+    font-size: 2.35rem;
     line-height: 1.15;
     letter-spacing: -0.02em;
 }
@@ -1010,7 +1056,7 @@ button[type="submit"]:hover,
 .risk-title-block p {
     margin: 0;
     color: var(--text-muted);
-    font-size: 1.05rem;
+    font-size: 1.2rem;
     font-weight: 800;
 }
 
@@ -1046,10 +1092,10 @@ button[type="submit"]:hover,
 }
 
 .decision-badge {
-    padding: 9px 16px;
+    padding: 12px 20px;
     border-radius: 999px;
     color: #ffffff;
-    font-size: 0.78rem;
+    font-size: 0.88rem;
     font-weight: 900;
     letter-spacing: 0.04em;
     text-transform: uppercase;
@@ -1061,8 +1107,8 @@ button[type="submit"]:hover,
 .decision-badge.low { background: var(--risk-low); }
 
 .risk-badge {
-    padding: 7px 14px;
-    font-size: 0.75rem;
+    padding: 10px 18px;
+    font-size: 0.86rem;
     font-weight: 800;
     border-radius: 9999px;
     letter-spacing: 0.05em;
@@ -1631,36 +1677,37 @@ button[type="submit"]:hover,
     margin-top: 8px;
 }
 .recommendation {
-    margin: 26px 0 28px;
+    margin: 32px 0 34px;
     padding: 0;
-    border: 1px solid var(--border-color);
+    border: 2px solid #bfdbfe;
     border-radius: var(--radius-md);
     background: var(--bg-card);
-    box-shadow: var(--shadow-md);
+    box-shadow: 0 18px 38px rgba(37, 99, 235, 0.12);
     overflow: hidden;
 }
 
 .recommendation-main {
-    padding: 22px 24px 24px;
-    border-left: 4px solid var(--accent);
+    padding: 28px 32px 30px;
+    border-left: 8px solid var(--accent);
+    background: linear-gradient(90deg, #eff6ff 0%, #ffffff 18%, #ffffff 100%);
 }
 
 .recommendation-label {
     margin: 0;
     color: var(--accent);
-    font-size: 1.08rem;
+    font-size: 1.2rem;
     font-weight: 800;
     letter-spacing: 0.08em;
     text-transform: uppercase;
 }
 
 #recommendation {
-    margin: 12px 0 0;
-    padding-top: 14px;
+    margin: 14px 0 0;
+    padding-top: 18px;
     border-top: 1px solid var(--border-color);
     color: var(--text-main);
-    font-size: 1.12rem;
-    font-weight: 750;
+    font-size: 1.35rem;
+    font-weight: 800;
     line-height: 1.5;
 }
 
@@ -1676,12 +1723,12 @@ button[type="submit"]:hover,
 }
 
 .next-steps ul,
-.not-included ul {
+.coverage-limits ul {
     margin: 8px 0 0 18px;
 }
 
 .next-steps li,
-.not-included li {
+.coverage-limits li {
     color: var(--text-muted);
     font-size: 0.84rem;
     line-height: 1.5;
@@ -1705,21 +1752,33 @@ button[type="submit"]:hover,
     line-height: 1.5;
 }
 
-.not-included {
+.coverage-limits {
     margin-top: 14px;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+}
+
+.coverage-limits div {
     padding: 12px;
     border: 1px solid var(--border-color);
     border-radius: var(--radius-sm);
     background: var(--bg-card);
 }
 
-.not-included span {
+.coverage-limits span {
     display: block;
     color: var(--text-main);
     font-size: 0.78rem;
     font-weight: 800;
     text-transform: uppercase;
     letter-spacing: 0.06em;
+}
+
+@media (max-width: 760px) {
+    .coverage-limits {
+        grid-template-columns: 1fr;
+    }
 }
 .error { padding: 16px; background: var(--risk-high-bg); border: 1px solid var(--risk-high-border); color: var(--risk-high); border-radius: var(--radius-sm); }
 .error-inline {
