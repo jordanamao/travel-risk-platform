@@ -976,6 +976,54 @@ h1 {
     box-shadow: var(--shadow-sm);
 }
 
+.route-swap-control {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: -6px;
+}
+
+.route-swap-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    min-height: 58px;
+    padding: 13px 20px;
+    border: 0;
+    border-radius: 12px;
+    background: rgba(37, 99, 235, 0.1);
+    color: #2563eb;
+    font: inherit;
+    font-size: 0.96rem;
+    font-weight: 800;
+    cursor: pointer;
+    transition: background-color 0.16s ease, color 0.16s ease, transform 0.16s ease, box-shadow 0.16s ease;
+}
+
+.route-swap-icon {
+    flex: 0 0 auto;
+    font-size: 1.55rem;
+    font-weight: 800;
+    line-height: 1;
+}
+
+.route-swap-button:hover,
+.route-swap-button:focus-visible {
+    background: rgba(37, 99, 235, 0.16);
+    color: #1d4ed8;
+    box-shadow: 0 8px 18px rgba(37, 99, 235, 0.12);
+    transform: translateY(-1px);
+}
+
+.route-swap-button:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.18), 0 8px 18px rgba(37, 99, 235, 0.12);
+}
+
+.route-swap-button--active {
+    transform: translateY(-1px) scale(0.98);
+}
+
 @media (max-width: 500px) {
     .form-actions {
         grid-template-columns: 1fr;
@@ -987,6 +1035,14 @@ h1 {
 
     #save-trip {
         min-height: 52px;
+    }
+
+    .route-swap-control {
+        justify-content: stretch;
+    }
+
+    .route-swap-button {
+        width: 100%;
     }
 }
 

@@ -96,6 +96,47 @@ function setupAirportPreferences() {
   syncAirports();
 }
 
+function setupRouteSwapToggle() {
+  const swapButton = document.querySelector("#swap-route");
+  const originInput = form.querySelector('input[name="origin"]');
+  const destinationInput = form.querySelector('input[name="destination"]');
+  const originAirportSelect = form.querySelector('select[name="originAirport"]');
+  const destinationAirportSelect = form.querySelector('select[name="destinationAirport"]');
+
+  if (!swapButton || !originInput || !destinationInput) return;
+
+  const dispatchFieldUpdate = (field) => {
+    field.dispatchEvent(new Event("input", { bubbles: true }));
+    field.dispatchEvent(new Event("change", { bubbles: true }));
+  };
+
+  const setSelectValueIfAvailable = (select, value) => {
+    if (!select || !value) return;
+    const hasOption = Array.from(select.options).some((option) => option.value === value);
+    if (hasOption) {
+      select.value = value;
+      select.dispatchEvent(new Event("change", { bubbles: true }));
+    }
+  };
+
+  swapButton.addEventListener("click", () => {
+    const originValue = originInput.value;
+    const destinationValue = destinationInput.value;
+    const originAirportValue = originAirportSelect ? originAirportSelect.value : "";
+    const destinationAirportValue = destinationAirportSelect ? destinationAirportSelect.value : "";
+
+    originInput.value = destinationValue;
+    destinationInput.value = originValue;
+    dispatchFieldUpdate(originInput);
+    dispatchFieldUpdate(destinationInput);
+
+    setSelectValueIfAvailable(originAirportSelect, destinationAirportValue);
+    setSelectValueIfAvailable(destinationAirportSelect, originAirportValue);
+    swapButton.classList.add("route-swap-button--active");
+    window.setTimeout(() => swapButton.classList.remove("route-swap-button--active"), 180);
+  });
+}
+
 function populateAirportSelect(kind, locationValue) {
   const select = document.querySelector(`[data-airport-select="${kind}"]`);
   const options = airportOptionsByCity[locationValue] || [];

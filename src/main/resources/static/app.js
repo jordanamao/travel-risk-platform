@@ -1,5 +1,6 @@
 setupLocationComboboxes();
 setupAirportPreferences();
+setupRouteSwapToggle();
 setupResultActions();
 setupSavedTrips();
 setupAdminDashboard();
