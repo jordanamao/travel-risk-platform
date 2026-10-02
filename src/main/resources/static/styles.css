@@ -986,15 +986,15 @@ h1 {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    gap: 10px;
-    min-height: 58px;
-    padding: 13px 20px;
+    gap: 8px;
+    min-height: 42px;
+    padding: 8px 14px;
     border: 0;
-    border-radius: 12px;
+    border-radius: 10px;
     background: rgba(37, 99, 235, 0.1);
     color: #2563eb;
     font: inherit;
-    font-size: 0.96rem;
+    font-size: 0.82rem;
     font-weight: 800;
     cursor: pointer;
     transition: background-color 0.16s ease, color 0.16s ease, transform 0.16s ease, box-shadow 0.16s ease;
@@ -1002,7 +1002,7 @@ h1 {
 
 .route-swap-icon {
     flex: 0 0 auto;
-    font-size: 1.55rem;
+    font-size: 1.2rem;
     font-weight: 800;
     line-height: 1;
 }
