@@ -1,5 +1,6 @@
 package com.travelrisk.platform.config;
 
+import com.travelrisk.platform.ratelimit.RateLimitFilter;
 import com.travelrisk.platform.security.JwtAuthenticationFilter;
 import jakarta.servlet.http.HttpServletResponse;
 import java.util.ArrayList;
@@ -38,7 +39,8 @@ public class SecurityConfig {
   SecurityFilterChain securityFilterChain(
       HttpSecurity http,
       ObjectProvider<ClientRegistrationRepository> clientRegistrations,
-      JwtAuthenticationFilter jwtAuthenticationFilter) throws Exception {
+      JwtAuthenticationFilter jwtAuthenticationFilter,
+      RateLimitFilter rateLimitFilter) throws Exception {
     http
         .csrf(csrf -> csrf.disable())
         .authorizeHttpRequests(auth -> auth
@@ -67,7 +69,8 @@ public class SecurityConfig {
               }
               response.sendRedirect("/login");
             }))
-        .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
+        .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
+        .addFilterAfter(rateLimitFilter, JwtAuthenticationFilter.class);
 
     if (clientRegistrations.getIfAvailable() != null) {
       http.oauth2Login(oauth2 -> oauth2
