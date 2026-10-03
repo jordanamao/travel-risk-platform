@@ -6,8 +6,8 @@ Spring Boot version of the travel disruption risk app. It serves the existing da
 
 - Live app: [https://travel-risk-platform.onrender.com](https://travel-risk-platform.onrender.com)
 - Login page: [https://travel-risk-platform.onrender.com/login](https://travel-risk-platform.onrender.com/login)
-- Demo username: `employee`
-- Demo password: `travel-risk-demo`
+- Employee demo logins: any `employee` plus a number at `email.com`, such as `employee1@email.com`, `employee5@email.com`, or `employee100@email.com` / `travel-risk-demo`
+- Admin login: set `TRAVEL_RISK_ADMIN_USERNAME` and `TRAVEL_RISK_ADMIN_PASSWORD`
 
 The production deployment runs on Render with a managed Render Postgres database. Saved trips are persisted in the `saved_trips` table, and risk-change notifications are persisted in the `trip_notifications` table.
 
@@ -30,11 +30,15 @@ export OPENAI_MODEL=gpt-6-astra
 
 ## Authentication
 
-The dashboard is protected by Spring Security. For local demos, sign in with `employee` / `travel-risk-demo`, or override the credentials:
+The dashboard is protected by Spring Security. Employee users can only see their own saved trips and notifications. Admin users can also see the company-wide dashboard, assessment history, and API monitoring views.
+
+For local demos, sign in as an employee with any `employee` plus a number at `email.com`, such as `employee1@email.com`, `employee5@email.com`, or `employee100@email.com` / `travel-risk-demo`. Configure an admin account with:
 
 ```bash
-export TRAVEL_RISK_USERNAME=your-user
+export TRAVEL_RISK_EMPLOYEE_USERNAME_PATTERN='employee[0-9]+@email\.com'
 export TRAVEL_RISK_PASSWORD=your-password
+export TRAVEL_RISK_ADMIN_USERNAME=your-admin-user
+export TRAVEL_RISK_ADMIN_PASSWORD=your-strong-admin-password
 export TRAVEL_RISK_JWT_SECRET=replace-with-at-least-32-characters
 ```
 
@@ -43,7 +47,7 @@ API clients can request a JWT:
 ```bash
 curl -X POST http://localhost:8080/api/auth/token \
   -H "Content-Type: application/json" \
-  -d '{"username":"employee","password":"travel-risk-demo"}'
+  -d '{"username":"employee1@email.com","password":"travel-risk-demo"}'
 ```
 
 Then call protected endpoints with `Authorization: Bearer <token>`.
@@ -68,6 +72,23 @@ mvn spring-boot:run
 ```
 
 The login page will use `/oauth2/authorization/google` for Google sign-in.
+
+## Rate Limiting
+
+In-process, fixed-window rate limiting protects two endpoints. Over the limit, the API returns `429` with a `Retry-After` header (seconds) and `{"error": "..."}`, and the request never reaches the controller.
+
+- `GET /api/analyze`: per authenticated user (JWT subject / session user); falls back to client IP when unauthenticated.
+- `POST /api/auth/token`: per client IP, stricter, to slow down password guessing.
+
+| Property (env var) | Default | Meaning |
+| --- | --- | --- |
+| `travel-risk.rate-limit.enabled` (`RATE_LIMIT_ENABLED`) | `true` | Set `false` to disable rate limiting entirely |
+| `travel-risk.rate-limit.analyze.requests` (`RATE_LIMIT_ANALYZE_REQUESTS`) | `30` | Analyze requests allowed per window |
+| `travel-risk.rate-limit.analyze.window` (`RATE_LIMIT_ANALYZE_WINDOW`) | `60s` | Analyze window length (e.g. `60s`, `2m`) |
+| `travel-risk.rate-limit.token.requests` (`RATE_LIMIT_TOKEN_REQUESTS`) | `10` | Token requests allowed per IP per window |
+| `travel-risk.rate-limit.token.window` (`RATE_LIMIT_TOKEN_WINDOW`) | `60s` | Token window length |
+
+Counters are kept in memory per application instance and reset on restart. Behind a reverse proxy (such as Render), set `server.forward-headers-strategy=native` so the client IP is taken from `X-Forwarded-For` instead of the proxy address.
 
 ## Redis Cache
 
@@ -145,7 +166,10 @@ Optional:
 ```text
 OPENAI_API_KEY
 OPENAI_MODEL=gpt-6-astra
+ROAD511_API_KEY
 ```
+
+`ROAD511_API_KEY` enables live road incident and closure checks. The FAA NAS airport status feed does not require an API key.
 
 After Render gives you a public URL, add its Google OAuth redirect URI in Google Cloud:
 
@@ -165,3 +189,5 @@ https://your-custom-domain.com/login/oauth2/code/google
 - Open-Meteo for forecasts
 - National Weather Service for official alerts and forecasts
 - Aviation Weather Center for METAR airport observations
+- FAA NAS Status API for live airport ground stops, delay programs, arrival/departure delays, and closures
+- Road511 Traffic Data API for road incidents and closures when `ROAD511_API_KEY` is configured
