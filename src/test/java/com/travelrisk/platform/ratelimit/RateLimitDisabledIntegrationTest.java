@@ -23,7 +23,7 @@ import org.springframework.test.web.servlet.MockMvc;
     "spring.jpa.hibernate.ddl-auto=validate",
     "spring.flyway.enabled=true",
     "travel-risk.jwt.secret=test-secret-test-secret-test-secret-32",
-    "travel-risk.security.username=employee@email.com",
+    "travel-risk.security.employee-username-pattern=employee[0-9]+@email\\.com",
     "travel-risk.security.password=travel-risk-demo",
     "travel-risk.rate-limit.enabled=false",
     "travel-risk.rate-limit.analyze.requests=1",
@@ -47,7 +47,7 @@ class RateLimitDisabledIntegrationTest {
     for (int i = 0; i < 5; i++) {
       var result = mockMvc.perform(post("/api/auth/token")
               .contentType(MediaType.APPLICATION_JSON)
-              .content("{\"username\":\"employee@email.com\",\"password\":\"travel-risk-demo\"}"))
+              .content("{\"username\":\"employee100@email.com\",\"password\":\"travel-risk-demo\"}"))
           .andExpect(status().isOk())
           .andReturn();
       token = com.jayway.jsonpath.JsonPath.read(result.getResponse().getContentAsString(), "$.accessToken");

@@ -38,7 +38,7 @@ import org.springframework.test.web.servlet.request.RequestPostProcessor;
     "spring.jpa.hibernate.ddl-auto=validate",
     "spring.flyway.enabled=true",
     "travel-risk.jwt.secret=test-secret-test-secret-test-secret-32",
-    "travel-risk.security.username=employee@email.com",
+    "travel-risk.security.employee-username-pattern=employee[0-9]+@email\\.com",
     "travel-risk.security.password=travel-risk-demo",
     "travel-risk.rate-limit.enabled=true",
     "travel-risk.rate-limit.analyze.requests=2",
@@ -48,7 +48,7 @@ import org.springframework.test.web.servlet.request.RequestPostProcessor;
 })
 @AutoConfigureMockMvc
 class RateLimitFilterIntegrationTest {
-  private static final String LOGIN_JSON = "{\"username\":\"employee@email.com\",\"password\":\"travel-risk-demo\"}";
+  private static final String LOGIN_JSON = "{\"username\":\"employee100@email.com\",\"password\":\"travel-risk-demo\"}";
 
   @Autowired
   private MockMvc mockMvc;
