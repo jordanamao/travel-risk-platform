@@ -1357,6 +1357,64 @@ h1 {
     margin: 12px 0 26px 0;
 }
 
+.source-disclosure {
+    padding: 0;
+    overflow: hidden;
+}
+
+.source-disclosure summary {
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 28px 36px;
+    user-select: none;
+}
+
+.source-disclosure summary::-webkit-details-marker {
+    display: none;
+}
+
+.source-disclosure summary::after {
+    content: "+";
+    color: var(--accent);
+    font-size: 1.3rem;
+    font-weight: 800;
+    line-height: 1;
+}
+
+.source-disclosure[open] summary::after {
+    content: "−";
+}
+
+.source-disclosure summary strong,
+.source-disclosure summary small {
+    display: block;
+}
+
+.source-disclosure summary strong {
+    color: var(--text-main);
+    font-size: 1rem;
+    font-weight: 800;
+}
+
+.source-disclosure summary small {
+    margin-top: 8px;
+    color: var(--text-muted);
+    font-size: 0.86rem;
+    font-weight: 500;
+}
+
+.source-disclosure .sources-grid {
+    margin: 0;
+    padding: 0 36px 28px;
+}
+
+.source-disclosure .glossary-grid {
+    padding: 0 36px 28px;
+}
+
 .source-row {
     display: flex;
     align-items: center;
