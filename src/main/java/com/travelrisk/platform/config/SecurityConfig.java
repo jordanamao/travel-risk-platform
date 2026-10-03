@@ -2,8 +2,7 @@ package com.travelrisk.platform.config;
 
 import com.travelrisk.platform.security.JwtAuthenticationFilter;
 import jakarta.servlet.http.HttpServletResponse;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.regex.Pattern;
 import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
 import org.springframework.beans.factory.annotation.Value;
@@ -15,8 +14,8 @@ import org.springframework.security.config.annotation.authentication.configurati
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.core.userdetails.User;
-import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
@@ -24,7 +23,6 @@ import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.jwt.JwtEncoder;
 import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.security.oauth2.jwt.NimbusJwtEncoder;
-import org.springframework.security.provisioning.InMemoryUserDetailsManager;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.LoginUrlAuthenticationEntryPoint;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
@@ -81,23 +79,28 @@ public class SecurityConfig {
   @Bean
   UserDetailsService userDetailsService(
       PasswordEncoder passwordEncoder,
-      @Value("${travel-risk.security.username}") String username,
+      @Value("${travel-risk.security.employee-username-pattern}") String employeeUsernamePattern,
       @Value("${travel-risk.security.password}") String password,
       @Value("${travel-risk.security.admin-username:}") String adminUsername,
       @Value("${travel-risk.security.admin-password:}") String adminPassword) {
-    List<UserDetails> users = new ArrayList<>();
-    UserDetails user = User.withUsername(username)
-        .password(passwordEncoder.encode(password))
-        .roles("USER")
-        .build();
-    users.add(user);
-    if (!adminUsername.isBlank() && !adminPassword.isBlank() && !adminUsername.equalsIgnoreCase(username)) {
-      users.add(User.withUsername(adminUsername)
-          .password(passwordEncoder.encode(adminPassword))
-          .roles("USER", "ADMIN")
-          .build());
-    }
-    return new InMemoryUserDetailsManager(users);
+    Pattern employeePattern = Pattern.compile(employeeUsernamePattern, Pattern.CASE_INSENSITIVE);
+    String encodedEmployeePassword = passwordEncoder.encode(password);
+    String encodedAdminPassword = adminPassword.isBlank() ? "" : passwordEncoder.encode(adminPassword);
+    return username -> {
+      if (!adminUsername.isBlank() && !adminPassword.isBlank() && adminUsername.equalsIgnoreCase(username)) {
+        return User.withUsername(adminUsername)
+            .password(encodedAdminPassword)
+            .roles("USER", "ADMIN")
+            .build();
+      }
+      if (employeePattern.matcher(username).matches()) {
+        return User.withUsername(username)
+            .password(encodedEmployeePassword)
+            .roles("USER")
+            .build();
+      }
+      throw new UsernameNotFoundException("User not found: " + username);
+    };
   }
 
   @Bean

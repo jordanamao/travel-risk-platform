@@ -30,7 +30,7 @@ import org.springframework.web.util.UriComponentsBuilder;
         "spring.jpa.hibernate.ddl-auto=validate",
         "spring.flyway.enabled=true",
         "travel-risk.jwt.secret=test-secret-test-secret-test-secret-32",
-        "travel-risk.security.username=employee@email.com",
+        "travel-risk.security.employee-username-pattern=employee[0-9]+@email\\.com",
         "travel-risk.security.password=travel-risk-demo",
         "travel-risk.security.admin-username=admin@email.com",
         "travel-risk.security.admin-password=admin-secret-demo"
@@ -54,7 +54,7 @@ class InternalApiIntegrationTest {
     when(travelRiskService.analyze(anyString(), anyString(), anyString(), anyString(), anyString(), anyString()))
         .thenReturn(assessment);
 
-    HttpEntity<Void> authorized = new HttpEntity<>(authHeaders("employee@email.com", "travel-risk-demo"));
+    HttpEntity<Void> authorized = new HttpEntity<>(authHeaders("employee100@email.com", "travel-risk-demo"));
     String analyzeUrl = UriComponentsBuilder.fromHttpUrl(url("/api/analyze"))
         .queryParam("origin", "New York, NY")
         .queryParam("destination", "San Francisco, CA")
@@ -66,7 +66,7 @@ class InternalApiIntegrationTest {
     assertThat(analyze.getStatusCode()).isEqualTo(HttpStatus.OK);
     assertThat(analyze.getBody().at("/score/level").asText()).isEqualTo("High");
 
-    HttpHeaders postHeaders = authHeaders("employee@email.com", "travel-risk-demo");
+    HttpHeaders postHeaders = authHeaders("employee100@email.com", "travel-risk-demo");
     postHeaders.setContentType(MediaType.APPLICATION_JSON);
     HttpEntity<String> saveRequest = new HttpEntity<>(
         objectMapper.writeValueAsString(new SaveTripRequest(assessment)),
@@ -84,6 +84,10 @@ class InternalApiIntegrationTest {
 
     ResponseEntity<String> employeeDashboard = restTemplate.exchange(url("/api/admin/dashboard"), HttpMethod.GET, authorized, String.class);
     assertThat(employeeDashboard.getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
+
+    HttpEntity<Void> secondEmployeeAuthorized = new HttpEntity<>(authHeaders("employee5@email.com", "travel-risk-demo"));
+    ResponseEntity<JsonNode> secondEmployeeTrips = restTemplate.exchange(url("/api/trips"), HttpMethod.GET, secondEmployeeAuthorized, JsonNode.class);
+    assertThat(secondEmployeeTrips.getStatusCode()).isEqualTo(HttpStatus.OK);
 
     HttpEntity<Void> adminAuthorized = new HttpEntity<>(authHeaders("admin@email.com", "admin-secret-demo"));
     ResponseEntity<JsonNode> dashboard = restTemplate.exchange(url("/api/admin/dashboard"), HttpMethod.GET, adminAuthorized, JsonNode.class);

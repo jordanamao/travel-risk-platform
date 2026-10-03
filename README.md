@@ -6,7 +6,7 @@ Spring Boot version of the travel disruption risk app. It serves the existing da
 
 - Live app: [https://travel-risk-platform.onrender.com](https://travel-risk-platform.onrender.com)
 - Login page: [https://travel-risk-platform.onrender.com/login](https://travel-risk-platform.onrender.com/login)
-- Employee demo login: `employee@email.com` / `travel-risk-demo`
+- Employee demo logins: any `employee` plus a number at `email.com`, such as `employee1@email.com`, `employee5@email.com`, or `employee100@email.com` / `travel-risk-demo`
 - Admin login: set `TRAVEL_RISK_ADMIN_USERNAME` and `TRAVEL_RISK_ADMIN_PASSWORD`
 
 The production deployment runs on Render with a managed Render Postgres database. Saved trips are persisted in the `saved_trips` table, and risk-change notifications are persisted in the `trip_notifications` table.
@@ -32,10 +32,10 @@ export OPENAI_MODEL=gpt-6-astra
 
 The dashboard is protected by Spring Security. Employee users can only see their own saved trips and notifications. Admin users can also see the company-wide dashboard, assessment history, and API monitoring views.
 
-For local demos, sign in as an employee with `employee@email.com` / `travel-risk-demo`. Configure an admin account with:
+For local demos, sign in as an employee with any `employee` plus a number at `email.com`, such as `employee1@email.com`, `employee5@email.com`, or `employee100@email.com` / `travel-risk-demo`. Configure an admin account with:
 
 ```bash
-export TRAVEL_RISK_USERNAME=your-user
+export TRAVEL_RISK_EMPLOYEE_USERNAME_PATTERN='employee[0-9]+@email\.com'
 export TRAVEL_RISK_PASSWORD=your-password
 export TRAVEL_RISK_ADMIN_USERNAME=your-admin-user
 export TRAVEL_RISK_ADMIN_PASSWORD=your-strong-admin-password
@@ -47,7 +47,7 @@ API clients can request a JWT:
 ```bash
 curl -X POST http://localhost:8080/api/auth/token \
   -H "Content-Type: application/json" \
-  -d '{"username":"employee@email.com","password":"travel-risk-demo"}'
+  -d '{"username":"employee1@email.com","password":"travel-risk-demo"}'
 ```
 
 Then call protected endpoints with `Authorization: Bearer <token>`.
