@@ -17,7 +17,8 @@ class TravelRiskServiceScoringTest {
         new ObjectMapper(),
         "test-agent",
         "",
-        "test-model");
+        "test-model",
+        "");
     List<TravelRiskService.Signal> signals = new ArrayList<>(List.of(
         new TravelRiskService.Signal("aviation-weather", "high", "Airport weather", "METAR"),
         new TravelRiskService.Signal("official-alert", "medium", "Weather alert", "NWS"),
