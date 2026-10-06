@@ -16,6 +16,8 @@ Every company that sends people on the road pays for disruptions it could have s
 
 The information to prevent most of this is public, but it's spread across half a dozen sites: forecasts, National Weather Service alerts, FAA airport status, aviation weather reports and state road-closure feeds. No travel desk checks all of them for every trip, so disruptions are found at the airport instead of the day before, when the trip could still be moved.
 
+**Where it fits:** Enterprise tools like Everbridge focus on traveler safety. This focuses on whether the trip itself will be disrupted, before you book.
+
 ### Who it's for
 
 - **The buyer: a corporate travel, operations, or duty-of-care / HR lead** responsible for people on the road. They need one view of every employee's upcoming trips, which ones are at risk, what changed since yesterday, and a record that the company checked.
