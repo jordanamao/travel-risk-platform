@@ -56,18 +56,33 @@
     <div class="sso-divider"><span>or</span></div>
     <a class="sso-button" href="/oauth2/authorization/google">Continue with Google</a>
 
-    <div class="login-demo-note" aria-label="Demo credentials">
-      <p><strong>Demo employee</strong><span>employee1@email.com</span></p>
-      <p><strong>Password</strong><span>travel-risk-demo</span></p>
-      <p>Any employee number works, like <span>employee100@email.com</span>.</p>
-      <p><strong>Admin access is available only for the configured admin account.</strong></p>
-    </div>
+    <section class="login-demo-note" aria-labelledby="demo-heading">
+      <div class="login-demo-header">
+        <h3 id="demo-heading">Demo account</h3>
+        <button type="button" class="login-demo-fill" data-demo-fill>Use demo account</button>
+      </div>
+      <dl class="login-demo-creds">
+        <dt>Email</dt>
+        <dd data-demo-username>employee1@email.com</dd>
+        <dt>Password</dt>
+        <dd data-demo-password>travel-risk-demo</dd>
+      </dl>
+      <p class="login-demo-hint">Any <code>employee</code> number works, e.g. <code>employee100@email.com</code>.</p>
+      <p class="login-demo-admin">Admin access uses the configured admin account.</p>
+    </section>
   </section>
 </main>
 <script>
   const params = new URLSearchParams(window.location.search);
   document.querySelectorAll("[data-visible-param]").forEach((item) => {
     item.hidden = !params.has(item.dataset.visibleParam);
+  });
+
+  document.querySelector("[data-demo-fill]").addEventListener("click", () => {
+    const form = document.querySelector(".login-form");
+    form.username.value = document.querySelector("[data-demo-username]").textContent.trim();
+    form.password.value = document.querySelector("[data-demo-password]").textContent.trim();
+    form.querySelector("button[type=submit]").focus();
   });
 </script>
 </body>
