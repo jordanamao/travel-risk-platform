@@ -640,7 +640,7 @@ public class TravelRiskService {
     String recommendation = switch (context.score().level()) {
       case "High" -> "Consider alternate timing or routing, and confirm " + confirm + " before departure.";
       case "Medium" -> "Proceed with caution, build in extra time, and recheck " + confirm + " closer to departure.";
-      default -> "Trip risk appears manageable based on currently available evidence; still recheck conditions before leaving.";
+      default -> "Low risk. Recheck conditions before you leave.";
     };
     String summary = topSignals.isEmpty()
         ? context.score().level() + " disruption risk. No major risk signals were found in the current data sources."

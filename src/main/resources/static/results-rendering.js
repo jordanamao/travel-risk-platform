@@ -306,7 +306,7 @@ function renderNextSteps(data) {
     steps.push("Proceed with the current plan.");
     steps.push("Recheck conditions before departure.");
   }
-  if (steps.length < 3) steps.push("Keep the downloaded report for reference.");
+  if (steps.length < 3) steps.push("Download the report for your records.");
 
   list.innerHTML = steps.slice(0, 4).map((step) => `<li>${step}</li>`).join("");
 }
