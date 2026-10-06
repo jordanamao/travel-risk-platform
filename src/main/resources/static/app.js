@@ -3,6 +3,8 @@ setupAirportPreferences();
 setupRouteSwapToggle();
 setupResultActions();
 setupSavedTrips();
+setupItineraryImport();
+setupTravelPolicy();
 setupAdminDashboard();
 setState("empty");
 

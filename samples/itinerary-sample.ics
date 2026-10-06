@@ -1,0 +1,39 @@
+BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//Travel Risk Platform//Sample itinerary//EN
+BEGIN:VEVENT
+UID:sample-trip-1@travel-risk-platform
+DTSTAMP:20261006T000000Z
+DTSTART;VALUE=DATE:20261008
+SUMMARY:Flight: New York\, NY (JFK) to Chicago\, IL (ORD)
+ATTENDEE;CN=Traveler:mailto:employee1@email.com
+END:VEVENT
+BEGIN:VEVENT
+UID:sample-trip-2@travel-risk-platform
+DTSTAMP:20261006T000000Z
+DTSTART;VALUE=DATE:20261009
+SUMMARY:Flight: Denver\, CO (DEN) to Seattle\, WA (SEA)
+ATTENDEE;CN=Traveler:mailto:employee2@email.com
+END:VEVENT
+BEGIN:VEVENT
+UID:sample-trip-3@travel-risk-platform
+DTSTAMP:20261006T000000Z
+DTSTART;VALUE=DATE:20261011
+SUMMARY:Drive: Boston\, MA to Washington\, DC
+ATTENDEE;CN=Traveler:mailto:employee1@email.com
+END:VEVENT
+BEGIN:VEVENT
+UID:sample-trip-4@travel-risk-platform
+DTSTAMP:20261006T000000Z
+DTSTART;VALUE=DATE:20261013
+SUMMARY:Drive: Dallas\, TX to Austin\, TX
+ATTENDEE;CN=Traveler:mailto:employee3@email.com
+END:VEVENT
+BEGIN:VEVENT
+UID:sample-trip-5@travel-risk-platform
+DTSTAMP:20261006T000000Z
+DTSTART;VALUE=DATE:20261015
+SUMMARY:Business trip: Miami\, FL to Atlanta\, GA
+ATTENDEE;CN=Traveler:mailto:employee2@email.com
+END:VEVENT
+END:VCALENDAR

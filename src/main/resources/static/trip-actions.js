@@ -45,6 +45,80 @@ function setupSavedTrips() {
   loadNotifications();
 }
 
+function setupItineraryImport() {
+  const toggle = document.querySelector("#toggle-import");
+  const panel = document.querySelector("#import-panel");
+  const input = document.querySelector("#import-file");
+  if (!toggle || !panel || !input) return;
+
+  toggle.addEventListener("click", () => {
+    const open = panel.classList.toggle("hidden") === false;
+    toggle.setAttribute("aria-expanded", String(open));
+  });
+  input.addEventListener("change", () => {
+    if (input.files.length) importItinerary(input.files[0]);
+    input.value = "";
+  });
+}
+
+async function importItinerary(file) {
+  const results = document.querySelector("#import-results");
+  const label = document.querySelector(".import-file-button");
+  results.innerHTML = "";
+  const progress = document.createElement("p");
+  progress.className = "field-note";
+  progress.textContent = `Checking trips in ${file.name}...`;
+  results.appendChild(progress);
+  label.classList.add("busy");
+
+  try {
+    const body = new FormData();
+    body.append("file", file);
+    const response = await fetch("/api/trips/import", { method: "POST", body });
+    const data = await readJsonResponse(response, "Unable to import itinerary");
+    if (!response.ok) throw new Error(data.error || "Unable to import itinerary");
+    renderImportResults(data);
+    await loadSavedTrips();
+    await loadAdminDashboard();
+  } catch (error) {
+    results.innerHTML = `<p class="error-inline"></p>`;
+    results.querySelector("p").textContent = error.message;
+  } finally {
+    label.classList.remove("busy");
+  }
+}
+
+function renderImportResults(data) {
+  const results = document.querySelector("#import-results");
+  results.innerHTML = "";
+
+  const summary = document.createElement("p");
+  summary.className = "import-summary";
+  summary.textContent = `Imported ${data.imported} of ${data.totalRows} trip${data.totalRows === 1 ? "" : "s"}`
+      + (data.skipped ? `. ${data.skipped} need${data.skipped === 1 ? "s" : ""} attention.` : ".");
+  results.appendChild(summary);
+
+  const list = document.createElement("ul");
+  list.className = "import-rows";
+  for (const row of data.rows || []) {
+    const item = document.createElement("li");
+    item.className = row.status;
+    item.innerHTML = `<div><strong></strong><span></span></div>`;
+    item.querySelector("strong").textContent = row.origin && row.destination
+        ? `${row.origin} to ${row.destination}`
+        : `Line ${row.line}`;
+    if (row.status === "imported") {
+      item.querySelector("span").textContent =
+          `${friendlyDate(row.date)} · ${row.riskLevel} (${row.riskPoints} pts)${row.traveler ? ` · ${row.traveler}` : ""}`;
+      item.appendChild(policyBadge(row.policy));
+    } else {
+      item.querySelector("span").textContent = `Line ${row.line}: ${row.error}`;
+    }
+    list.appendChild(item);
+  }
+  results.appendChild(list);
+}
+
 async function saveLatestTrip() {
   if (!latestAssessment) return;
   const button = document.querySelector("#save-trip");
@@ -210,6 +284,9 @@ function renderSavedTrips(trips) {
     body.querySelector("span").textContent =
         `${friendlyDate(trip.date)} · ${tripTypeLabel(trip.mode)} · ${trip.riskLevel || "Unscored"}${trip.riskPoints !== null && trip.riskPoints !== undefined ? ` (${trip.riskPoints} pts)` : ""}`;
     body.querySelector("p").textContent = trip.summary || "Saved assessment snapshot";
+    if (trip.policy && trip.policy.outcome !== "allowed") {
+      body.querySelector("strong").after(policyBadge(trip.policy));
+    }
     body.addEventListener("click", () => loadSavedTripIntoDashboard(trip));
 
     const remove = document.createElement("button");
