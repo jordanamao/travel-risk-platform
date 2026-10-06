@@ -2035,10 +2035,8 @@ h1 {
 .coverage-limits span {
     display: block;
     color: var(--text-main);
-    font-size: 0.78rem;
+    font-size: 0.86rem;
     font-weight: 800;
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
 }
 
 @media (max-width: 760px) {
