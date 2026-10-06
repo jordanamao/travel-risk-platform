@@ -5,6 +5,8 @@ import com.travelrisk.platform.database.entities.SavedTrip;
 import com.travelrisk.platform.database.entities.UserProfile;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.travelrisk.platform.cost.DisruptionCostEstimate;
+import com.travelrisk.platform.cost.DisruptionCostService;
 import com.travelrisk.platform.monitoring.ApiMonitoringService;
 import com.travelrisk.platform.policy.PolicyDecision;
 import com.travelrisk.platform.policy.TravelPolicyService;
@@ -12,6 +14,7 @@ import com.travelrisk.platform.repository.AssessmentHistoryRepository;
 import com.travelrisk.platform.repository.SavedTripRepository;
 import com.travelrisk.platform.repository.TripNotificationRepository;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
@@ -37,6 +40,7 @@ public class AdminDashboardService {
   private final TripNotificationRepository notificationRepository;
   private final UserProfileService userProfileService;
   private final TravelPolicyService policyService;
+  private final DisruptionCostService costService;
   private final ObjectMapper objectMapper;
 
   public AdminDashboardService(
@@ -46,6 +50,7 @@ public class AdminDashboardService {
       TripNotificationRepository notificationRepository,
       UserProfileService userProfileService,
       TravelPolicyService policyService,
+      DisruptionCostService costService,
       ObjectMapper objectMapper) {
     this.historyRepository = historyRepository;
     this.monitoringService = monitoringService;
@@ -53,6 +58,7 @@ public class AdminDashboardService {
     this.notificationRepository = notificationRepository;
     this.userProfileService = userProfileService;
     this.policyService = policyService;
+    this.costService = costService;
     this.objectMapper = objectMapper;
   }
 
@@ -72,11 +78,13 @@ public class AdminDashboardService {
         Stream.concat(trips.stream().map(SavedTrip::getUsername), history.stream().map(AssessmentHistory::getUsername))
             .distinct()
             .toList());
+    List<AdminTripResponse> tripResponses = trips.stream().map(trip -> toResponse(trip, profiles)).toList();
     return new AdminDashboardResponse(
         stats,
-        trips.stream().map(trip -> toResponse(trip, profiles)).toList(),
+        tripResponses,
         history.stream().map(record -> toResponse(record, profiles)).toList(),
         monitoring,
+        costAtRisk(tripResponses),
         false);
   }
 
@@ -108,11 +116,13 @@ public class AdminDashboardService {
         Stream.concat(trips.stream().map(SavedTrip::getUsername), recent.stream().map(AssessmentHistory::getUsername))
             .distinct()
             .toList());
+    List<AdminTripResponse> tripResponses = trips.stream().map(trip -> toResponse(trip, profiles)).toList();
     return new AdminDashboardResponse(
         stats,
-        trips.stream().map(trip -> toResponse(trip, profiles)).toList(),
+        tripResponses,
         recent.stream().map(record -> toResponse(record, profiles)).toList(),
         monitoringService.snapshot(),
+        costAtRisk(tripResponses),
         true);
   }
 
@@ -136,7 +146,18 @@ public class AdminDashboardService {
         trip.getRiskPoints(),
         trip.getSummary(),
         trip.getUpdatedAt().toString(),
-        policyService.evaluate(trip.getRiskLevel(), trip.getRiskPoints(), trip.getMode(), readSnapshot(trip)));
+        policyService.evaluate(trip.getRiskLevel(), trip.getRiskPoints(), trip.getMode(), readSnapshot(trip)),
+        costService.estimate(trip.getRiskLevel(), trip.getMode()));
+  }
+
+  /** Money at risk across trips that haven't happened yet; past trips can no longer be changed. */
+  private DisruptionCostService.Rollup costAtRisk(List<AdminTripResponse> trips) {
+    String today = LocalDate.now().toString();
+    return costService.rollup(trips.stream()
+        .filter(trip -> trip.date().compareTo(today) >= 0)
+        .map(trip -> new DisruptionCostService.TripCost(trip.id(), trip.employee().name(), trip.origin(),
+            trip.destination(), trip.date(), trip.mode(), trip.cost()))
+        .toList());
   }
 
   private Map<String, Object> readSnapshot(SavedTrip trip) {
@@ -185,6 +206,7 @@ public class AdminDashboardService {
       List<AdminTripResponse> trips,
       List<AssessmentHistoryResponse> history,
       ApiMonitoringService.MonitoringSnapshot monitoring,
+      DisruptionCostService.Rollup costAtRisk,
       boolean readOnly) {}
 
   public record AdminStats(
@@ -209,7 +231,8 @@ public class AdminDashboardService {
       Integer riskPoints,
       String summary,
       String updatedAt,
-      PolicyDecision policy) {}
+      PolicyDecision policy,
+      DisruptionCostEstimate cost) {}
 
   public record AssessmentHistoryResponse(
       Long id,
