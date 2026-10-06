@@ -32,6 +32,15 @@ function setupResultActions() {
 function setupSavedTrips() {
   document.querySelector("#refresh-saved-trips").addEventListener("click", loadSavedTrips);
   document.querySelector("#check-alerts").addEventListener("click", checkAlerts);
+  document.querySelector("#try-sample").addEventListener("click", () => {
+    form.elements.origin.value = "New York, NY";
+    form.elements.destination.value = "San Francisco, CA";
+    form.elements.mode.value = "flight";
+    form.elements.origin.dispatchEvent(new Event("change", { bubbles: true }));
+    form.elements.destination.dispatchEvent(new Event("change", { bubbles: true }));
+    form.elements.mode.dispatchEvent(new Event("change", { bubbles: true }));
+    form.requestSubmit();
+  });
   loadSavedTrips();
   loadNotifications();
 }
@@ -67,6 +76,7 @@ function syncSaveTripButton() {
   const button = document.querySelector("#save-trip");
   if (!button) return;
   button.disabled = !latestAssessment;
+  document.querySelector("#save-trip-hint")?.classList.toggle("hidden", Boolean(latestAssessment));
 }
 
 async function loadSavedTrips() {
@@ -148,7 +158,7 @@ function renderNotifications(notifications) {
         `${notification.origin} to ${notification.destination}`;
     item.querySelector("p").textContent = notification.message;
     item.querySelector("span").textContent =
-        `${notification.date} · ${formatNotificationTime(notification.createdAt)}`;
+        `${friendlyDate(notification.date)} · ${formatNotificationTime(notification.createdAt)}`;
     const button = item.querySelector("button");
     if (button) {
       button.addEventListener("click", () => markNotificationRead(notification.id));
@@ -178,6 +188,7 @@ function renderSavedTrips(trips) {
   const container = document.querySelector("#saved-trips");
   container.innerHTML = "";
 
+  document.querySelector("#sample-preview")?.classList.toggle("hidden", trips.length > 0);
   if (!trips.length) {
     container.innerHTML = `<p class="field-note">No saved trips yet. Run an assessment, then save it here.</p>`;
     return;
@@ -197,7 +208,7 @@ function renderSavedTrips(trips) {
     `;
     body.querySelector("strong").textContent = `${trip.origin} to ${trip.destination}`;
     body.querySelector("span").textContent =
-        `${trip.date} · ${tripTypeLabel(trip.mode)} · ${trip.riskLevel || "Unscored"}${trip.riskPoints !== null && trip.riskPoints !== undefined ? ` (${trip.riskPoints} pts)` : ""}`;
+        `${friendlyDate(trip.date)} · ${tripTypeLabel(trip.mode)} · ${trip.riskLevel || "Unscored"}${trip.riskPoints !== null && trip.riskPoints !== undefined ? ` (${trip.riskPoints} pts)` : ""}`;
     body.querySelector("p").textContent = trip.summary || "Saved assessment snapshot";
     body.addEventListener("click", () => loadSavedTripIntoDashboard(trip));
 

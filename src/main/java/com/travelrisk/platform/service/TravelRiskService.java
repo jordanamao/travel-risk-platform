@@ -7,11 +7,15 @@ import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Function;
+import java.util.function.Predicate;
 import java.util.regex.Pattern;
 import javax.xml.parsers.DocumentBuilderFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -124,6 +128,9 @@ public class TravelRiskService {
       signals.addAll(bundle.signals());
     }
 
+    if ("flight".equals(mode)) {
+      signals.removeIf(signal -> "road-closure".equals(signal.type()));
+    }
     Score score = scoreSignals(signals, mode);
     Synthesis synthesis = synthesize(new SynthesisContext(originGeo, destinationGeo, date, mode, score, signals, evidence));
 
@@ -143,7 +150,7 @@ public class TravelRiskService {
             new Source("National Weather Service API", "Active alerts and official point forecasts", "https://www.weather.gov/documentation/services-web-api"),
             new Source("Aviation Weather Center API", "METAR airport weather observations near the route endpoints", "https://aviationweather.gov/data/api/"),
             new Source("FAA NAS Status API", "Live airport ground stops, delay programs, arrival/departure delays, and airport closures", "https://nasstatus.faa.gov/api/airport-status-information"),
-            new Source("Road511 Traffic Data API", "Optional live traffic incidents and closures when ROAD511_API_KEY is configured", "https://www.road511.com/docs.html")));
+            new Source("Road511 Traffic Data API", "Live traffic incidents and closures, where available", "https://www.road511.com/docs.html")));
   }
 
   @CachePut(value = "tripAssessments", key = "{#rawOrigin, #rawDestination, #rawDate, #rawMode, #rawOriginAirport, #rawDestinationAirport}")
@@ -338,8 +345,8 @@ public class TravelRiskService {
     String jurisdiction = roadJurisdiction(origin, destination);
     if (road511ApiKey == null || road511ApiKey.isBlank()) {
       return new Bundle(List.of(new Evidence("Road511 Traffic Data API", "Road closures", "unknown",
-          "Road closure data not checked because ROAD511_API_KEY is not configured.",
-          orderedMap("jurisdiction", jurisdiction, "configuration", "Set ROAD511_API_KEY to enable live road closure checks."),
+          "Road closure data is not connected for this deployment.",
+          orderedMap("jurisdiction", jurisdiction),
           "https://www.road511.com/docs.html")), List.of());
     }
     String url = UriComponentsBuilder.fromUriString("https://api.road511.com/api/v1/events")
@@ -361,16 +368,24 @@ public class TravelRiskService {
             "No live Road511 incidents or closures returned for " + jurisdiction + ".",
             orderedMap("jurisdiction", jurisdiction), url));
       }
+      List<String> riskyTitles = new ArrayList<>();
+      String worstSeverity = "low";
+      Set<String> seenEvents = new HashSet<>();
       for (Map<String, Object> event : events) {
         String type = string(event.get("type"));
-        String severity = roadSeverity(type, string(event.get("severity")));
         String title = firstNonBlank(string(event.get("title")), string(event.get("description")), "Road event");
+        String eventKey = firstNonBlank(string(event.get("id")), title + "|" + type + "|" + string(event.get("description")));
+        if (!seenEvents.add(eventKey)) continue;
+        String severity = roadSeverity(type, string(event.get("severity")), title);
         evidence.add(new Evidence("Road511 Traffic Data API", "Road closures", severity,
             title, event, url));
         if (List.of("medium", "high").contains(severity)) {
-          signals.add(new Signal("road-closure", severity,
-              "Road511 reports " + title + ".", firstNonBlank(string(event.get("description")), title)));
+          riskyTitles.add(title);
+          if (severityRank(severity) > severityRank(worstSeverity)) worstSeverity = severity;
         }
+      }
+      if (!riskyTitles.isEmpty()) {
+        signals.add(roadClosureSignal(jurisdiction, worstSeverity, riskyTitles));
       }
       return new Bundle(evidence, signals);
     } catch (Exception error) {
@@ -533,10 +548,20 @@ public class TravelRiskService {
     return "CA";
   }
 
-  private String roadSeverity(String type, String severity) {
-    String normalized = (type + " " + severity).toLowerCase(Locale.ROOT);
-    if (normalized.contains("closure") || normalized.contains("critical") || normalized.contains("major")) return "high";
-    if (normalized.contains("construction") || normalized.contains("incident") || normalized.contains("moderate")) return "medium";
+  // Road511 returns statewide events, so several closures are one road-conditions signal, not one signal each.
+  static Signal roadClosureSignal(String jurisdiction, String severity, List<String> titles) {
+    long distinct = titles.stream().distinct().count();
+    String count = distinct == 1 ? "1 road closure or incident" : distinct + " road closures or incidents";
+    return new Signal("road-closure", severity,
+        count + " reported in " + jurisdiction + " right now.",
+        String.join("; ", titles.stream().distinct().limit(3).toList()));
+  }
+
+  // Only full closures or major incidents are high; work zones and lane closures slow a trip but rarely stop it.
+  static String roadSeverity(String type, String severity, String title) {
+    String normalized = (type + " " + severity + " " + title).toLowerCase(Locale.ROOT);
+    if (normalized.contains("full") || normalized.contains("critical") || normalized.contains("major")) return "high";
+    if (normalized.contains("closure") || normalized.contains("incident") || normalized.contains("moderate")) return "medium";
     return "low";
   }
 
@@ -608,19 +633,38 @@ public class TravelRiskService {
   private Synthesis localSynthesis(SynthesisContext context) {
     List<Signal> topSignals = context.signals().stream()
         .sorted((a, b) -> Integer.compare(severityRank(b.severity()), severityRank(a.severity())))
+        .filter(distinctBy(Signal::type))
         .limit(3)
         .toList();
+    String confirm = confirmationText(topSignals);
     String recommendation = switch (context.score().level()) {
-      case "High" -> "Consider alternate timing or routing, monitor official alerts closely, and confirm flight or road status before departure.";
-      case "Medium" -> "Proceed with caution, build in extra time, and recheck conditions closer to departure.";
+      case "High" -> "Consider alternate timing or routing, and confirm " + confirm + " before departure.";
+      case "Medium" -> "Proceed with caution, build in extra time, and recheck " + confirm + " closer to departure.";
       default -> "Trip risk appears manageable based on currently available evidence; still recheck conditions before leaving.";
     };
     String summary = topSignals.isEmpty()
         ? context.score().level() + " disruption risk. No major risk signals were found in the current data sources."
         : context.score().level() + " disruption risk, driven by " + readableDriverText(topSignals) + ".";
     return new Synthesis(summary, recommendation,
-        "This platform combines live weather, aviation weather, FAA airport operations, and configured Road511 road closure signals. Booked itinerary status and private company policy still require customer-owned data connections.",
+        "Booked itinerary status, airline operations, and company policy are not checked.",
         Map.of("used", false, "provider", "local fallback"));
+  }
+
+  private static <T> Predicate<T> distinctBy(Function<T, Object> key) {
+    Set<Object> seen = new HashSet<>();
+    return item -> seen.add(key.apply(item));
+  }
+
+  private String confirmationText(List<Signal> signals) {
+    List<String> checks = signals.stream().map(signal -> switch (signal.type()) {
+      case "aviation-weather", "faa-airport-status" -> "flight and airport status";
+      case "road-closure" -> "road conditions on your route";
+      case "official-alert" -> "official weather alerts";
+      default -> "the latest forecast";
+    }).distinct().toList();
+    if (checks.isEmpty()) return "conditions";
+    if (checks.size() == 1) return checks.getFirst();
+    return String.join(", ", checks.subList(0, checks.size() - 1)) + " and " + checks.getLast();
   }
 
   private String readableDriverText(List<Signal> signals) {
@@ -632,7 +676,7 @@ public class TravelRiskService {
       if ("road-closure".equals(signal.type())) return "live road closure or traffic incident data";
       if ("official-alert".equals(signal.type())) return "an active official weather alert";
       return signal.message().toLowerCase(Locale.ROOT);
-    }).toList();
+    }).distinct().toList();
     if (labels.size() <= 1) return labels.isEmpty() ? "current weather conditions" : labels.getFirst();
     if (labels.size() == 2) return labels.get(0) + " and " + labels.get(1);
     return String.join(", ", labels.subList(0, labels.size() - 1)) + ", and " + labels.getLast();

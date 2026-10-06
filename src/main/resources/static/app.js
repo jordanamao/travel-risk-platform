@@ -4,6 +4,7 @@ setupRouteSwapToggle();
 setupResultActions();
 setupSavedTrips();
 setupAdminDashboard();
+setState("empty");
 
 form.addEventListener("submit", async (event) => {
   event.preventDefault();

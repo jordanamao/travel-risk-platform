@@ -170,7 +170,7 @@
       </div>
 
       <form id="trip-form" class="trip-form">
-        <div class="form-row">
+        <div class="route-fields">
           <label>
             Origin
             <span class="location-combobox">
@@ -179,6 +179,9 @@
               <span class="location-menu hidden"></span>
             </span>
           </label>
+          <button type="button" id="swap-route" class="route-swap-button" aria-label="Swap origin and destination" title="Swap origin and destination">
+            <span aria-hidden="true">⇅</span>
+          </button>
           <label>
             Destination
             <span class="location-combobox">
@@ -187,12 +190,6 @@
               <span class="location-menu hidden"></span>
             </span>
           </label>
-        </div>
-        <div class="route-swap-control">
-          <button type="button" id="swap-route" class="route-swap-button" aria-label="Swap origin and destination">
-            <span class="route-swap-icon" aria-hidden="true">↑↓</span>
-            <span>Swap route</span>
-          </button>
         </div>
 
         <label>
@@ -208,9 +205,7 @@
             <option value="drive">Driving: route weather matters most</option>
             <option value="general">Business: mixed travel modes</option>
           </select>
-          <span class="field-note">
-                Business mode includes flight, driving, rideshare, train, and walking.
-              </span>
+          <span class="field-note">Business mode includes flight, driving, rideshare, train, and walking.</span>
         </label>
 
         <div id="airport-preferences" class="airport-preferences">
@@ -225,24 +220,22 @@
               <select name="destinationAirport" data-airport-select="destination"></select>
             </label>
           </div>
-          <span class="field-note">Leave Auto selected to use the nearest airport observations.</span>
+          <p class="field-note">Leave Auto selected to use the nearest airport observations.</p>
         </div>
 
         <div class="form-actions">
           <button type="submit">Assess trip risk</button>
-          <button type="button" id="save-trip" disabled>Save trip</button>
+          <button type="button" id="save-trip" disabled aria-describedby="save-trip-hint">Save trip</button>
         </div>
+        <p id="save-trip-hint" class="field-note save-trip-hint">Run an assessment first, then save it to Your trips.</p>
       </form>
 
       <section class="saved-trips-panel" aria-label="Saved trips">
         <div class="saved-trips-header">
-          <div>
-            <p class="eyebrow">SQL database</p>
-            <h2>Saved trips</h2>
-          </div>
+          <h2>Your trips</h2>
           <div class="saved-trips-actions">
-            <button type="button" id="check-alerts">Check alerts</button>
-            <button type="button" id="refresh-saved-trips">Refresh</button>
+            <button type="button" id="check-alerts" title="Re-check saved trips for risk changes">Check alerts</button>
+            <button type="button" id="refresh-saved-trips" class="icon-button" aria-label="Refresh your trips" title="Refresh">↻</button>
           </div>
         </div>
         <div id="saved-trips" class="saved-trips-list">
@@ -263,8 +256,20 @@
 
   <section class="panel result-panel">
     <div id="empty-state" class="empty-state">
-      <h2>Ready for a route</h2>
-      <p>Try New York to San Francisco for tomorrow, or enter a route you care about.</p>
+      <div class="empty-intro">
+        <h2>Ready for a route</h2>
+        <p>Choose a route and date, then select Assess trip risk. Saved trips and alerts appear here.</p>
+      </div>
+      <article id="sample-preview" class="sample-preview hidden" aria-label="Example result">
+        <div class="sample-preview-header">
+          <span class="sample-tag">Example</span>
+          <strong>New York, NY to San Francisco, CA</strong>
+          <span class="sample-meta">Flight · Low risk · Proceed</span>
+        </div>
+        <p>Each result scores weather, official alerts, airport conditions, FAA delays, and road closures, then explains what drives the risk.</p>
+        <button type="button" id="try-sample">Try this route</button>
+      </article>
+      <div id="empty-trips-slot"></div>
     </div>
 
     <div id="loading" class="loading hidden">
@@ -314,7 +319,7 @@
 
         <div class="at-a-glance" aria-label="Assessment highlights">
           <h3>At a glance</h3>
-          <p class="score-flow">The assessment reviews weather, official alerts, airport observations, FAA airport operations, and configured road closure signals, then converts the risky findings into scored signals that determine the final risk level.</p>
+          <p class="score-flow">Scored from weather, official alerts, airport conditions, and road closures.</p>
           <div id="glance" class="glance-grid"></div>
           <div id="impact-split" class="impact-split"></div>
           <div id="score-breakdown" class="score-breakdown"></div>
@@ -338,7 +343,6 @@
           </div>
           <div class="uncertainty-note">
             <p class="recommendation-label">Limits to know</p>
-            <p id="uncertainty"></p>
             <div class="coverage-limits">
               <div>
                 <span>Included now</span>
@@ -347,7 +351,7 @@
                   <li>Official NWS alerts</li>
                   <li>Airport weather observations</li>
                   <li>FAA airport delays and closures</li>
-                  <li>Road closures with ROAD511_API_KEY</li>
+                  <li>Road closures (511 traffic data)</li>
                 </ul>
               </div>
               <div>
@@ -403,16 +407,41 @@
               <small>Definitions for the risk and aviation terms used in the report.</small>
             </span>
           </summary>
-          <div class="glossary-grid">
-            <p><strong>METAR</strong><span>Stands for Meteorological Aerodrome Report. The app uses METAR in airport weather evidence and airport risk signals to read live visibility, clouds, wind, gusts, and VFR/MVFR/IFR status.</span></p>
-            <p><strong>VFR</strong><span>Visual Flight Rules. Good flying conditions. Pilots can generally see clearly enough to fly by visual reference.</span></p>
-            <p><strong>MVFR</strong><span>Marginal Visual Flight Rules. Reduced visibility or lower clouds. Conditions are not severe, but they require more caution because they are getting worse.</span></p>
-            <p><strong>IFR</strong><span>Instrument Flight Rules. Poor visibility or low clouds. Pilots rely more on instruments, and delays or cancellations are more likely.</span></p>
-            <p><strong>FAA</strong><span>Federal Aviation Administration. In this app, FAA data means live U.S. airport operational status such as ground stops, delay programs, arrival/departure delays, and closures.</span></p>
-            <p><strong>NAS</strong><span>National Airspace System. The FAA NAS status feed reports current airport and airspace disruptions that can affect flight operations.</span></p>
-            <p><strong>NWS</strong><span>National Weather Service official U.S. weather alerts and forecasts.</span></p>
-            <p><strong>Precipitation probability</strong><span>Chance that measurable rain or snow occurs during the forecast period.</span></p>
-            <p><strong>Gust</strong><span>Wind is the steady speed. Gust is a short stronger burst. Gusts matter because sudden crosswinds can affect takeoff, landing, and high-profile vehicles.</span></p>
+          <div class="glossary-body">
+            <section>
+              <h5>Flight conditions</h5>
+              <dl>
+                <dt>VFR</dt><dd>Visual Flight Rules: clear enough to fly by sight. Good conditions.</dd>
+                <dt>MVFR</dt><dd>Marginal VFR: lower clouds or reduced visibility, so more caution is needed.</dd>
+                <dt>IFR</dt><dd>Instrument Flight Rules: poor visibility or low clouds; delays are more likely.</dd>
+                <dt>LIFR</dt><dd>Low IFR: very poor visibility or very low clouds; the highest disruption risk.</dd>
+              </dl>
+            </section>
+            <section>
+              <h5>Data sources</h5>
+              <dl>
+                <dt>METAR</dt><dd>Live airport weather report: visibility, clouds, wind, and flight category.</dd>
+                <dt>FAA / NAS</dt><dd>FAA status for the National Airspace System: ground stops, delay programs, and closures.</dd>
+                <dt>NWS</dt><dd>National Weather Service official U.S. forecasts and alerts.</dd>
+                <dt>511 road data</dt><dd>State traffic feeds of current road closures, work zones, and incidents.</dd>
+              </dl>
+            </section>
+            <section>
+              <h5>Weather terms</h5>
+              <dl>
+                <dt>Precipitation probability</dt><dd>Chance of measurable rain or snow during the forecast period.</dd>
+                <dt>Gust</dt><dd>A short burst of wind above the steady speed; matters for takeoff, landing, and tall vehicles.</dd>
+              </dl>
+            </section>
+            <section>
+              <h5>How the score works</h5>
+              <dl>
+                <dt>Signal</dt><dd>A risky finding that adds points to the score.</dd>
+                <dt>Evidence</dt><dd>Everything a source returned, including low-risk data that adds no points.</dd>
+                <dt>Risk score</dt><dd>High signals add 6 points, Medium 3, Low 1. 10+ points is High, 5 to 9 is Medium.</dd>
+                <dt>Confidence</dt><dd>How much independent evidence backs the score; more agreeing signals means higher confidence.</dd>
+              </dl>
+            </section>
           </div>
         </details>
       </section>
