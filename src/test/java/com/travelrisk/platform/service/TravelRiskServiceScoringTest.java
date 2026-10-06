@@ -33,8 +33,15 @@ class TravelRiskServiceScoringTest {
 
     assertThat(signal.type()).isEqualTo("road-closure");
     assertThat(signal.severity()).isEqualTo("high");
-    assertThat(signal.message()).isEqualTo("Road511 reports 4 closures or incidents in CA right now.");
+    assertThat(signal.message()).isEqualTo("3 road closures or incidents reported in CA right now.");
     assertThat(signal.evidence()).isEqualTo("I-80 closed; US-101 lane closure; SR-1 incident");
+  }
+
+  @Test
+  void roadSeverityComesFromClosureType() {
+    assertThat(TravelRiskService.roadSeverity("closure", "", "Full — US-101")).isEqualTo("high");
+    assertThat(TravelRiskService.roadSeverity("closure", "", "Lane closure — I-80")).isEqualTo("medium");
+    assertThat(TravelRiskService.roadSeverity("construction", "", "Work Zone - SR-61")).isEqualTo("low");
   }
 
   @Test

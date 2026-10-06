@@ -370,10 +370,13 @@ public class TravelRiskService {
       }
       List<String> riskyTitles = new ArrayList<>();
       String worstSeverity = "low";
+      Set<String> seenEvents = new HashSet<>();
       for (Map<String, Object> event : events) {
         String type = string(event.get("type"));
-        String severity = roadSeverity(type, string(event.get("severity")));
         String title = firstNonBlank(string(event.get("title")), string(event.get("description")), "Road event");
+        String eventKey = firstNonBlank(string(event.get("id")), title + "|" + type + "|" + string(event.get("description")));
+        if (!seenEvents.add(eventKey)) continue;
+        String severity = roadSeverity(type, string(event.get("severity")), title);
         evidence.add(new Evidence("Road511 Traffic Data API", "Road closures", severity,
             title, event, url));
         if (List.of("medium", "high").contains(severity)) {
@@ -547,16 +550,18 @@ public class TravelRiskService {
 
   // Road511 returns statewide events, so several closures are one road-conditions signal, not one signal each.
   static Signal roadClosureSignal(String jurisdiction, String severity, List<String> titles) {
-    String count = titles.size() == 1 ? "1 closure or incident" : titles.size() + " closures or incidents";
+    long distinct = titles.stream().distinct().count();
+    String count = distinct == 1 ? "1 road closure or incident" : distinct + " road closures or incidents";
     return new Signal("road-closure", severity,
-        "Road511 reports " + count + " in " + jurisdiction + " right now.",
+        count + " reported in " + jurisdiction + " right now.",
         String.join("; ", titles.stream().distinct().limit(3).toList()));
   }
 
-  private String roadSeverity(String type, String severity) {
-    String normalized = (type + " " + severity).toLowerCase(Locale.ROOT);
-    if (normalized.contains("closure") || normalized.contains("critical") || normalized.contains("major")) return "high";
-    if (normalized.contains("construction") || normalized.contains("incident") || normalized.contains("moderate")) return "medium";
+  // Only full closures or major incidents are high; work zones and lane closures slow a trip but rarely stop it.
+  static String roadSeverity(String type, String severity, String title) {
+    String normalized = (type + " " + severity + " " + title).toLowerCase(Locale.ROOT);
+    if (normalized.contains("full") || normalized.contains("critical") || normalized.contains("major")) return "high";
+    if (normalized.contains("closure") || normalized.contains("incident") || normalized.contains("moderate")) return "medium";
     return "low";
   }
 
