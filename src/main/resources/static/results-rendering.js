@@ -71,10 +71,8 @@ function renderTopDrivers(signals) {
       .slice(0, 3);
 
   container.innerHTML = "";
-  if (!topSignals.length) {
-    container.textContent = "No major risk drivers were detected.";
-    return;
-  }
+  // The summary sentence already says when nothing drives the risk.
+  if (!topSignals.length) return;
 
   const label = document.createElement("span");
   label.textContent = "Main drivers";
@@ -320,9 +318,9 @@ function updateRadarMap(route) {
   const lat = ((origin.lat + destination.lat) / 2).toFixed(4);
   const lon = ((origin.lon + destination.lon) / 2).toFixed(4);
   const span = Math.max(Math.abs(origin.lat - destination.lat), Math.abs(origin.lon - destination.lon));
-  const zoom = span > 20 ? 3 : span > 8 ? 5 : span > 3 ? 6 : 7;
+  const zoom = span > 20 ? 4 : span > 8 ? 5 : span > 3 ? 6 : 7;
 
-  iframe.src = `https://embed.windy.com/embed2.html?lat=${lat}&lon=${lon}&zoom=${zoom}&level=surface&overlay=radar&menu=&message=true&marker=true&calendar=now&pressure=&type=map&location=coordinates&detail=&metricWind=default&metricTemp=default&radarRange=-1`;
+  iframe.src = `https://embed.windy.com/embed2.html?lat=${lat}&lon=${lon}&zoom=${zoom}&level=surface&overlay=radar&menu=&message=true&marker=&calendar=now&pressure=&type=map&location=coordinates&detail=&metricWind=default&metricTemp=default&radarRange=-1`;
 }
 
 function renderSources(data) {
@@ -809,8 +807,8 @@ function labelize(key) {
 
 function tripTypeLabel(mode) {
   return {
-    flight: "Flight: airport weather matters most",
-    drive: "Driving: route weather matters most",
-    general: "Business: mixed travel modes"
+    flight: "Flight",
+    drive: "Driving",
+    general: "Business travel"
   }[mode] || "Travel assessment";
 }
