@@ -6,7 +6,7 @@ Spring Boot version of the travel disruption risk app. It serves the existing da
 
 - Live app: [https://travel-risk-platform.onrender.com](https://travel-risk-platform.onrender.com)
 - Login page: [https://travel-risk-platform.onrender.com/login](https://travel-risk-platform.onrender.com/login)
-- Employee demo logins: any `employee` plus a number at `email.com`, such as `employee1@email.com`, `employee5@email.com`, or `employee100@email.com` / `travel-risk-demo`
+- Employee demo logins: any `employee` plus a number at `email.com`, such as `employee1@email.com`, `employee5@email.com`, or `employee100@email.com` / `travel-risk-demo` (or click **Use demo account** on the login page)
 - Admin login: set `TRAVEL_RISK_ADMIN_USERNAME` and `TRAVEL_RISK_ADMIN_PASSWORD`
 
 The production deployment runs on Render with a managed Render Postgres database. Saved trips are persisted in the `saved_trips` table, and risk-change notifications are persisted in the `trip_notifications` table.
@@ -51,7 +51,7 @@ export OPENAI_MODEL=gpt-6-astra
 
 The dashboard is protected by Spring Security. Employee users can only see their own saved trips and notifications. Admin users can also see the company-wide dashboard, assessment history, and API monitoring views.
 
-For local demos, sign in as an employee with any `employee` plus a number at `email.com`, such as `employee1@email.com`, `employee5@email.com`, or `employee100@email.com` / `travel-risk-demo`. Configure an admin account with:
+For local demos, sign in as an employee with any `employee` plus a number at `email.com`, such as `employee1@email.com`, `employee5@email.com`, or `employee100@email.com` / `travel-risk-demo`. The **Use demo account** button on the login page fills these in for you. Configure an admin account with:
 
 ```bash
 export TRAVEL_RISK_EMPLOYEE_USERNAME_PATTERN='employee[0-9]+@email\.com'
