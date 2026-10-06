@@ -2763,7 +2763,6 @@ summary {
     }
 }
 
-
 /* Admin dashboard: four summary tiles, collapsible sections, no-wrap cells. */
 .admin-stats {
     grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -2977,7 +2976,9 @@ summary {
     .admin-section-toolbar {
         align-items: flex-start;
         flex-direction: column;
-=======
+    }
+}
+
 /* Itinerary import and company travel policy */
 .policy-badge {
     display: inline-flex;
