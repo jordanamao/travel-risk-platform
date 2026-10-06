@@ -3,14 +3,20 @@ package com.travelrisk.platform.service;
 import com.travelrisk.platform.database.entities.AssessmentHistory;
 import com.travelrisk.platform.database.entities.SavedTrip;
 import com.travelrisk.platform.database.entities.UserProfile;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.travelrisk.platform.monitoring.ApiMonitoringService;
+import com.travelrisk.platform.policy.PolicyDecision;
+import com.travelrisk.platform.policy.TravelPolicyService;
 import com.travelrisk.platform.repository.AssessmentHistoryRepository;
 import com.travelrisk.platform.repository.SavedTripRepository;
 import com.travelrisk.platform.repository.TripNotificationRepository;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
+
 import java.util.stream.Stream;
+
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -27,18 +33,28 @@ public class AdminDashboardService {
   private final SavedTripRepository savedTripRepository;
   private final TripNotificationRepository notificationRepository;
   private final UserProfileService userProfileService;
+  private final TravelPolicyService policyService;
+  private final ObjectMapper objectMapper;
+
 
   public AdminDashboardService(
       AssessmentHistoryRepository historyRepository,
       ApiMonitoringService monitoringService,
       SavedTripRepository savedTripRepository,
       TripNotificationRepository notificationRepository,
+
       UserProfileService userProfileService) {
-    this.userProfileService = userProfileService;
+      this.userProfileService = userProfileService;
+
+      TravelPolicyService policyService,
+      ObjectMapper objectMapper) {
+
     this.historyRepository = historyRepository;
     this.monitoringService = monitoringService;
     this.savedTripRepository = savedTripRepository;
     this.notificationRepository = notificationRepository;
+    this.policyService = policyService;
+    this.objectMapper = objectMapper;
   }
 
   @Transactional(readOnly = true)
@@ -83,7 +99,16 @@ public class AdminDashboardService {
         trip.getRiskLevel(),
         trip.getRiskPoints(),
         trip.getSummary(),
-        trip.getUpdatedAt().toString());
+        trip.getUpdatedAt().toString(),
+        policyService.evaluate(trip.getRiskLevel(), trip.getRiskPoints(), trip.getMode(), readSnapshot(trip)));
+  }
+
+  private Map<String, Object> readSnapshot(SavedTrip trip) {
+    try {
+      return objectMapper.readValue(trip.getAssessmentJson(), new TypeReference<>() {});
+    } catch (Exception error) {
+      return null;
+    }
   }
 
   private AssessmentHistoryResponse toResponse(AssessmentHistory history, Map<String, UserProfile> profiles) {
@@ -146,7 +171,8 @@ public class AdminDashboardService {
       String riskLevel,
       Integer riskPoints,
       String summary,
-      String updatedAt) {}
+      String updatedAt,
+      PolicyDecision policy) {}
 
   public record AssessmentHistoryResponse(
       Long id,

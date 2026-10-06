@@ -6,6 +6,8 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.travelrisk.platform.database.entities.SavedTrip;
 import com.travelrisk.platform.database.entities.TripNotification;
+import com.travelrisk.platform.policy.PolicyDecision;
+import com.travelrisk.platform.policy.TravelPolicyService;
 import com.travelrisk.platform.repository.SavedTripRepository;
 import com.travelrisk.platform.repository.TripNotificationRepository;
 import java.time.LocalDate;
@@ -20,6 +22,7 @@ public class SavedTripService {
   private final TripNotificationRepository notificationRepository;
   private final TripNotificationService notificationService;
   private final TravelRiskService travelRiskService;
+  private final TravelPolicyService policyService;
   private final ObjectMapper objectMapper;
 
   public SavedTripService(
@@ -27,11 +30,13 @@ public class SavedTripService {
       TripNotificationRepository notificationRepository,
       TripNotificationService notificationService,
       TravelRiskService travelRiskService,
+      TravelPolicyService policyService,
       ObjectMapper objectMapper) {
     this.repository = repository;
     this.notificationRepository = notificationRepository;
     this.notificationService = notificationService;
     this.travelRiskService = travelRiskService;
+    this.policyService = policyService;
     this.objectMapper = objectMapper;
   }
 
@@ -135,6 +140,7 @@ public class SavedTripService {
         trip.getSummary(),
         trip.getCreatedAt().toString(),
         trip.getUpdatedAt().toString(),
+        policyService.evaluate(trip.getRiskLevel(), trip.getRiskPoints(), trip.getMode(), assessment),
         assessment);
   }
 
@@ -151,6 +157,7 @@ public class SavedTripService {
       String summary,
       String createdAt,
       String updatedAt,
+      PolicyDecision policy,
       Map<String, Object> assessment) {}
 
   public record AlertCheckResponse(

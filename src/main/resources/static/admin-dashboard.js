@@ -69,7 +69,7 @@ async function loadAdminDashboard() {
   const monitoringEventsTable = document.querySelector("#admin-monitoring-events");
   if (!table) return;
 
-  table.innerHTML = `<tr><td colspan="6">Loading admin dashboard...</td></tr>`;
+  table.innerHTML = `<tr><td colspan="7">Loading admin dashboard...</td></tr>`;
   if (historyTable) {
     historyTable.innerHTML = `<tr><td colspan="6">Loading assessment history...</td></tr>`;
   }
@@ -95,7 +95,7 @@ async function loadAdminDashboard() {
     if (dashboard) dashboard.classList.remove("hidden");
     renderAdminDashboard(data);
   } catch (error) {
-    table.innerHTML = `<tr><td colspan="6">${error.message}</td></tr>`;
+    table.innerHTML = `<tr><td colspan="7">${error.message}</td></tr>`;
     if (historyTable) {
       historyTable.innerHTML = `<tr><td colspan="6">${error.message}</td></tr>`;
     }
@@ -135,11 +135,41 @@ function renderAdminDashboard(data) {
   setAdminCount("#admin-trip-count", trips.length);
 
   if (!trips.length) {
+
     table.innerHTML = `<tr><td colspan="6">No employee trips have been saved yet.</td></tr>`;
   }
 
   for (const trip of trips) {
     table.appendChild(adminAssessmentRow(trip, trip.updatedAt, false));
+    table.innerHTML = `<tr><td colspan="7">No employee trips have been saved yet.</td></tr>`;
+    renderAdminHistory(data.history || []);
+    return;
+  }
+
+  for (const trip of trips) {
+    const row = document.createElement("tr");
+    const riskLevel = trip.riskLevel || "Unscored";
+    row.innerHTML = `
+      <td></td>
+      <td><strong></strong><span></span></td>
+      <td></td>
+      <td></td>
+      <td><span class="admin-risk"></span></td>
+      <td></td>
+      <td></td>
+    `;
+    row.children[0].textContent = trip.username;
+    row.children[1].querySelector("strong").textContent = `${trip.origin} to ${trip.destination}`;
+    row.children[1].querySelector("span").textContent = trip.summary || "Saved assessment snapshot";
+    row.children[2].textContent = trip.date;
+    row.children[3].textContent = tripTypeLabel(trip.mode);
+    const risk = row.querySelector(".admin-risk");
+    risk.className = `admin-risk ${riskLevel.toLowerCase()}`;
+    risk.textContent = `${riskLevel}${trip.riskPoints !== null && trip.riskPoints !== undefined ? ` · ${trip.riskPoints} pts` : ""}`;
+    row.children[5].appendChild(policyBadge(trip.policy));
+    row.children[6].textContent = formatNotificationTime(trip.updatedAt);
+    table.appendChild(row);
+
   }
 
   adminHistoryExpanded = false;

@@ -113,6 +113,9 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
   }
 
   private static String defaultMessage(HttpStatus status) {
+    if (status.value() == 413) {
+      return "The upload is too large. Itinerary files can be up to 256 KB.";
+    }
     return switch (status) {
       case NOT_FOUND -> "No endpoint matches this path.";
       case METHOD_NOT_ALLOWED -> "This HTTP method is not supported for this path.";
