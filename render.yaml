@@ -4,10 +4,12 @@ services:
     runtime: docker
     plan: free
     dockerfilePath: ./Dockerfile
-    healthCheckPath: /login
+    healthCheckPath: /health
     envVars:
       - key: SPRING_CACHE_TYPE
         value: simple
+      - key: SERVER_FORWARD_HEADERS_STRATEGY
+        value: native
       - key: DATABASE_URL
         fromDatabase:
           name: travel-risk-platform-db

@@ -11,6 +11,20 @@ Spring Boot version of the travel disruption risk app. It serves the existing da
 
 The production deployment runs on Render with a managed Render Postgres database. Saved trips are persisted in the `saved_trips` table, and risk-change notifications are persisted in the `trip_notifications` table.
 
+## Screenshots
+
+### Login
+
+![Login page](docs/screenshots/login.png)
+
+### Risk Result
+
+![Risk result page](docs/screenshots/risk-result.png)
+
+### Admin Dashboard
+
+![Admin dashboard](docs/screenshots/admin-dashboard.png)
+
 ## Run Locally
 
 ```bash
@@ -18,6 +32,11 @@ mvn spring-boot:run
 ```
 
 Then open `http://localhost:8080`.
+
+## Health Check And CI
+
+- Health check: `GET /health` returns `{"status":"UP"}` and is used by Render.
+- CI: GitHub Actions runs `mvn test` on every branch push and pull request.
 
 ## Optional AI Summary
 
