@@ -1,13 +1,117 @@
 # Travel Risk Platform
 
-Spring Boot version of the travel disruption risk app. It serves the existing dashboard UI and exposes the same `/api/analyze` contract from a Java backend.
+**Know which trips are at risk before they're disrupted, and why.** Travel Risk Platform gives a company's travel or operations team one score per trip, built from live weather, official alerts, airport delays and road closures, with the evidence attached. It saves trips and flags them when the risk changes, so the team can move a trip the day before instead of rescuing a stranded employee the day of.
+
+**Code:** [github.com/jordanamao/travel-risk-platform](https://github.com/jordanamao/travel-risk-platform) · **Live app:** [travel-risk-platform.onrender.com](https://travel-risk-platform.onrender.com) (employee and read-only admin demo logins [below](#production-application)) · **Demo script:** [docs/DEMO_SCRIPT.md](docs/DEMO_SCRIPT.md)
+
+## Case Study
+
+### The problem
+
+Every company that sends people on the road pays for disruptions it could have seen coming:
+
+- **Missed meetings and lost deals** when a client visit falls through because a flight was ground-stopped.
+- **Stranded employees** and the scramble that follows: hotels, rebooking fees, a day of lost work.
+- **Duty of care.** Employers are expected to know when their travelers are heading into severe weather or a closure, and to act on it. "We didn't check" is not a good answer for HR, legal or the employee's family.
+
+The information to prevent most of this is public, but it's spread across half a dozen sites: forecasts, National Weather Service alerts, FAA airport status, aviation weather reports and state road-closure feeds. No travel desk checks all of them for every trip, so disruptions are found at the airport instead of the day before, when the trip could still be moved.
+
+### Who it's for
+
+- **The buyer: a corporate travel, operations, or duty-of-care / HR lead** responsible for people on the road. They need one view of every employee's upcoming trips, which ones are at risk, what changed since yesterday, and a record that the company checked.
+- **The everyday user: employees** who want a fast "should I leave earlier or pick another day?" answer for their own trip, without seeing anyone else's.
+
+### The value
+
+- **Minutes per trip down to seconds.** Checking forecasts at both ends, NWS alerts, airport weather, FAA status and road closures by hand takes an estimated 10 to 15 minutes per trip; the app does all eight checks in one click, in seconds. *(Estimate based on visiting each source manually.)*
+- **Fewer surprise disruptions.** Saved trips are rechecked and raise an alert when the risk level changes, so a trip booked on a calm Monday gets flagged when a storm shows up on Thursday.
+- **Decisions people can defend.** Every score lists the signals and sources behind it, so a manager can explain a "move this trip" call to the traveler, their boss or an auditor.
+- **A duty-of-care record.** Assessments are stored with their timestamp, giving the company a history of what it knew and when.
+
+### What it does
+
+- **One risk score per trip, with the receipts.** A route and date go in; out comes Low / Medium / High, a points total, a confidence level, a plain-English summary and recommendation, and every signal and source that produced it. Operators can see *why*, not just a color.
+- **Eight live checks in parallel.** Forecasts at the origin, destination and route midpoint (Open-Meteo), NWS alerts at both ends, METAR airport weather, FAA NAS ground stops and delay programs, and Road511 closures.
+- **Saved trips and alerts.** Employees save trips; a recheck compares the new score with the saved one and creates a notification when the risk level moves.
+- **An admin dashboard** with every employee's trips, high-risk counts, recent assessments, and API monitoring (call counts, failures, slow calls).
+- **Production basics:** Google OAuth plus JWT for API clients, role-based access (employees only see their own data, `/api/admin/**` is admin-only), Postgres with Flyway migrations, caching, per-user rate limiting, a consistent `{"error": "..."}` error contract, health checks, CI on every push, and auto-deploy to Render from `main`.
+
+### Architecture
+
+```mermaid
+flowchart LR
+    U[Employee / Ops manager<br/>browser] -->|Google OAuth or<br/>username + password| SEC[Spring Security<br/>session + JWT]
+    API[API client] -->|Bearer JWT| SEC
+    SEC --> RL[Rate limit filter<br/>per user / per IP]
+    RL --> C[Controllers<br/>/api/analyze, /api/trips,<br/>/api/notifications, /api/admin]
+    C --> TRS[TravelRiskService]
+    TRS --> CACHE[(Spring Cache<br/>in-memory or Redis)]
+    TRS -->|8 calls in parallel<br/>CompletableFuture| EXT
+    subgraph EXT[Live data sources]
+        OM[Open-Meteo<br/>forecasts]
+        NWS[National Weather<br/>Service alerts]
+        AWC[Aviation Weather<br/>METAR]
+        FAA[FAA NAS<br/>airport status]
+        R511[Road511<br/>closures]
+    end
+    TRS --> SCORE[Signals → score<br/>Low / Medium / High]
+    SCORE --> SUM[Summary + recommendation<br/>local or OpenAI]
+    C --> DB[(Postgres<br/>saved_trips, trip_notifications,<br/>assessment_history)]
+    MON[API monitoring aspect] -.-> TRS
+    C --> ADMIN[Admin dashboard]
+```
+
+**How the score works.** Each source turns its raw data into zero or more *signals* with a severity. Severities are worth points (low 1, medium 3, high 6; aviation weather gets +1 on flights), the points add up, and the total maps to a level: **10+ is High, 5 to 9 is Medium, under 5 is Low**. Every signal is shown next to the score, so an operator can disagree with it on the evidence.
+
+### Key trade-offs
+
+| Decision | Why | What it costs |
+| --- | --- | --- |
+| Free, public data sources (no paid flight-status API) | Anyone can run it without contracts or keys; good enough to catch weather, ground stops and closures | No airline-specific delays or a booked flight's own status yet |
+| Transparent additive points instead of an ML model | Operators need to see and trust *why* a trip is High; there's no labeled disruption history to train on | Weights are hand-tuned and need guarding against double counting (see below) |
+| Fan out all sources in parallel, and degrade per source | One slow or down API shouldn't block or fail the whole check; a failed source shows as "could not be reached" | The score can be lower than reality when a source is down, so source status is shown on every result |
+| Cache assessments per route and date | External APIs are slow and rate limited; repeat checks are instant | Results can be up to the cache TTL old; there's an explicit refresh endpoint |
+| In-memory rate limits and monitoring counters | No extra infrastructure for a single instance | Reset on restart and aren't shared across instances; Redis is the next step |
+| Local summary fallback, OpenAI optional | The app works with no AI key and no AI cost | Fallback summaries are template-based |
+
+### A real bug: one road closure feed made a flight "High risk"
+
+While testing the live site, a **New York to San Francisco flight scored High (60 points)**. Nothing was wrong with the weather or the airports. The cause was Road511: it returns *statewide* events, and every California road event, including routine work zones and one event listed twice, became its own 6-point "high" signal. Ten road events were worth 60 points on a trip that never touches a road, and the summary repeated "live road closure or traffic incident data" three times.
+
+**How I fixed it** ([PR #14](https://github.com/jordanamao/travel-risk-platform/pull/14)):
+
+1. **Roll up and dedupe.** All Road511 events for a check become *one* road-conditions signal, deduplicated by title, with severity from the worst closure type (full closure is high, closure or incident is medium, anything else is low).
+2. **Score by travel mode.** Flight trips keep road data as evidence but leave it out of the score, because a road closure doesn't delay a flight.
+3. **Name each driver once.** The summary and recommendation now follow the real drivers, without repeats.
+4. **Lock it in with tests** for the rollup, the dedupe, the severity mapping, and the flight-mode exclusion.
+
+**Result:** the same New York to San Francisco flight now scores **Low (0 points)**, and a *driving* trip with the same closures scores **Medium (6 points)**, which is what a person looking at the map would say.
+
+**What it taught me:** with an additive score, the unit of counting matters as much as the weights. A source that returns many rows about one condition has to be collapsed to one signal, and a signal only counts if it can actually affect the way the person is traveling.
+
+### Results
+
+- **8** live checks per assessment, run in parallel, with per-source status shown on every result.
+- **3-level** risk score with points, confidence, evidence and a recommendation.
+- **60 → 0 points** on the NY to SF flight after the road-closure fix (High → Low), with the driving case still correctly flagged Medium.
+- **31** automated tests run in CI on every push and pull request; `main` requires Maven tests and a Docker build to pass before merge.
+- Deployed on Render with managed Postgres and three Flyway-managed tables, auto-deployed from `main`.
+
+### Rolling it out at a company
+
+1. **Sign in with your company accounts.** Google sign-in works out of the box; admins are set by configuration, and employees only ever see their own trips.
+2. **Bring in the trips you already book.** Employees save trips today; importing booked itineraries from the travel booking system (a CSV or calendar export) so every trip is covered without retyping is the next integration.
+3. **Set your own policy.** Company rules such as "High risk trips need manager approval" and per-company risk thresholds belong in configuration, not code, so each customer can tune them.
+4. **Run the travel desk from the admin dashboard.** Upcoming trips across the company, high-risk counts, unread alerts and data-source health in one place.
+5. **Grow from there:** airline-specific operations and a booked flight's live status, and pushing alerts to the channels the team already uses.
 
 ## Production Application
 
 - Live app: [https://travel-risk-platform.onrender.com](https://travel-risk-platform.onrender.com)
 - Login page: [https://travel-risk-platform.onrender.com/login](https://travel-risk-platform.onrender.com/login)
 - Employee demo logins: any `employee` plus a number at `email.com`, such as `employee1@email.com`, `employee5@email.com`, or `employee100@email.com` / `travel-risk-demo` (or click **Use demo account** on the login page)
-- Admin login: set `TRAVEL_RISK_ADMIN_USERNAME` and `TRAVEL_RISK_ADMIN_PASSWORD`
+- Demo admin (read-only, sample data): TODO: login added with the demo-data PR. Try the operations manager's dashboard yourself without touching real data.
+- Real admin login: set `TRAVEL_RISK_ADMIN_USERNAME` and `TRAVEL_RISK_ADMIN_PASSWORD` (never shared)
 
 The production deployment runs on Render with a managed Render Postgres database. Saved trips are persisted in the `saved_trips` table, and risk-change notifications are persisted in the `trip_notifications` table.
 
@@ -41,10 +145,28 @@ mvn spring-boot:run
 
 Then open `http://localhost:8080`.
 
-## Health Check And CI
+## Deploy And Test
 
-- Health check: `GET /health` returns `{"status":"UP"}` and is used by Render.
-- CI: GitHub Actions runs `mvn test` on every branch push and pull request.
+**Production branch: `main`.** Render auto-deploys every merge to `main` to [travel-risk-platform.onrender.com](https://travel-risk-platform.onrender.com). Nothing else deploys. `develop` and feature branches never reach production.
+
+**`main` is protected.** A pull request can only merge when both required checks pass:
+
+- **Maven Tests:** `mvn test` on Java 21 (all unit and integration tests).
+- **Docker Build:** `docker build`, the same image Render runs.
+
+GitHub Actions runs both on every push and pull request ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)).
+
+**Run the tests from a fresh checkout.** You need Java 21 and Maven 3.9+. No database, API keys, Google credentials or `.env` file are needed: tests use an in-memory database and a placeholder Google client id.
+
+```bash
+git clone https://github.com/jordanamao/travel-risk-platform.git
+cd travel-risk-platform
+mvn test
+```
+
+Expected result: `Tests run: 31, Failures: 0, Errors: 0` and `BUILD SUCCESS` (verified on a fresh clone of `main` on 2026-10-06).
+
+**Health check:** `GET /health` returns `{"status":"UP"}`; Render uses it to decide when a new deploy is live.
 
 ## Optional AI Summary
 
