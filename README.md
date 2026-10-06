@@ -36,6 +36,11 @@ The information to prevent most of this is public, but it's spread across half a
 - **Eight live checks in parallel.** Forecasts at the origin, destination and route midpoint (Open-Meteo), NWS alerts at both ends, METAR airport weather, FAA NAS ground stops and delay programs, and Road511 closures.
 - **Plugs into the customer's own data.** Upload the booking export or calendar the company already has (CSV or .ics) and every trip is risk-checked and saved, with a per-row result so one bad row never blocks the rest.
 - **The customer's travel policy, as config.** A YAML rules file decides whether each trip is *Allowed*, needs a *Heads-up*, *Needs approval* or is *Blocked* (for example "High risk trips need manager approval"), so each company sets its own rules without a code change.
+
+- **The cost of doing nothing.** Every result shows an estimated cost of disruption (rebooking fee, an extra hotel night, lost working time and missed meetings) weighted by the chance of disruption at that risk level, and the admin dashboard adds it up across upcoming trips. Amounts are config, so each company uses its own figures.
+- **Saved trips and alerts.** Employees save trips; a recheck compares the new score with the saved one and creates a notification when the risk level moves.
+- **An admin dashboard** with the money at risk across upcoming trips, every employee's trips with their policy result and estimated cost, high-risk counts, recent assessments, and API monitoring (call counts, failures, slow calls).
+
 - **Saved trips and alerts where people already are.** Employees save trips; a scheduled recheck compares the new score with the saved one and, when the risk level moves (say Medium to High), raises an in-app notification and sends the same alert by email and to Slack with the route, the change, the main reason, and a link back.
 - **An admin dashboard** with every employee's trips and their policy result, high-risk counts, recent assessments, and API monitoring (call counts, failures, slow calls).
 - **Production basics:** Google OAuth plus JWT for API clients, role-based access (employees only see their own data, `/api/admin/**` is admin-only), Postgres with Flyway migrations, caching, per-user rate limiting, a consistent `{"error": "..."}` error contract, health checks, CI on every push, and auto-deploy to Render from `main`.
@@ -110,7 +115,7 @@ While testing the live site, a **New York to San Francisco flight scored High (6
 1. **Sign in with your company accounts.** Google sign-in works out of the box; admins are set by configuration, and employees only ever see their own trips.
 2. **Bring in the trips you already book.** Upload the travel agency's CSV export or a calendar file. Common column-name and date variations are accepted, because every customer's export is a little different. Admins can import for the whole company.
 3. **Set your own policy.** Point `TRAVEL_POLICY_LOCATION` at the company's rules file. [`samples/acme-travel-policy.yml`](samples/acme-travel-policy.yml) is a stricter example: approval for anything above Low risk and no driving into an active weather alert.
-4. **Run the travel desk from the admin dashboard.** Upcoming trips across the company with their policy result, high-risk counts, unread alerts and data-source health in one place.
+4. **Run the travel desk from the admin dashboard.** Money at risk across upcoming trips, each trip with its policy result and estimated cost, high-risk counts, unread alerts and data-source health in one place.
 5. **Grow from there:** airline-specific operations and a booked flight's live status, and pushing alerts to the channels the team already uses.
 
 ## Production Application
@@ -145,9 +150,15 @@ The production deployment runs on Render with a managed Render Postgres database
 
 ![Company policy result on an assessment](docs/screenshots/policy-result.png)
 
+
+### Cost Of Disruption
+
+![Estimated cost of disruption on a risk result](docs/screenshots/disruption-cost.png)
+
 ### Risk-Change Email
 
 ![Risk-change alert email: Medium to High with the main reason](docs/screenshots/risk-alert-email.png)
+
 
 ## Run Locally
 
@@ -242,8 +253,9 @@ The login page will use `/oauth2/authorization/google` for Google sign-in.
 
 **What it shows** (`GET /api/admin/dashboard`):
 
+- **Money at risk** (an estimate): the expected disruption cost across upcoming saved trips if nothing changes, split by risk level, the three trips carrying the most of it, and how much delaying or rerouting the High-risk trips would avoid. See [Disruption Cost Estimate](#disruption-cost-estimate).
 - Four totals: saved trips (and how many employees saved them), high-risk saved trips, risk checks (and how many rated High since the Oct 6 scoring fix), and slow or failed API calls. Click the last one to jump to the details.
-- Every employee's saved trips, ordered by travel date. Employees show by name or email; Google accounts show their name after their next sign-in.
+- Every employee's saved trips, ordered by travel date, with an **Est. cost** column (hover for the breakdown). Employees show by name or email; Google accounts show their name after their next sign-in.
 - The 50 most recent risk checks across all users (5 shown until you click **Show all**). Checks recorded before the Oct 6 road-closure fix are marked, since their scores can read too high. **Clear history** (`DELETE /api/admin/assessment-history`) asks for confirmation, then deletes all of them and can't be undone.
 - API monitoring: one row per API endpoint with friendly names (Risk check, Load saved trips, ...), with call counts, failures and slow calls (at or above `SLOW_API_THRESHOLD_MS`, default 1500 ms), plus the last 25 slow or failed calls. These counters are in memory and reset on restart.
 
@@ -277,6 +289,30 @@ Companies already have their trips somewhere: a travel agency's booking export o
 - The result shows on the assessment, on each saved trip, and in a **Policy** column on the admin dashboard. `GET /api/policy` returns the active rules and `POST /api/policy/evaluate` checks an unsaved assessment.
 - Decisions are worked out when a trip is read, so a policy change applies to every saved trip after a restart.
 - The app checks the file at startup and refuses to start on a typo (unknown action, misspelled condition, duplicate id), rather than silently ignoring a rule.
+
+## Disruption Cost Estimate
+
+Managers decide on money, so every result shows the **cost of doing nothing**: what a disruption is likely to cost if the trip goes ahead unchanged. It is labeled as an estimate everywhere, because it is one.
+
+```
+expected cost = chance of disruption at the trip's risk level × cost if disrupted
+cost if disrupted = rebooking or change fee + one extra hotel night + lost hours × hourly rate
+```
+
+| Setting | Env var | Default |
+| --- | --- | --- |
+| Chance of disruption, Low / Medium / High | `DISRUPTION_LIKELIHOOD_LOW` / `_MEDIUM` / `_HIGH` | 5% / 20% / 50% |
+| Rebooking or change fee (not for drives) | `DISRUPTION_COST_REBOOKING_FEE` | 250 |
+| Extra hotel night | `DISRUPTION_COST_HOTEL_NIGHT` | 200 |
+| Hourly cost of working time | `DISRUPTION_COST_HOURLY_RATE` | 90 |
+| Hours lost: flight / drive / business | `DISRUPTION_LOST_HOURS_FLIGHT` / `_DRIVE` / `_GENERAL` | 8 / 4 / 6 |
+| Currency | `DISRUPTION_COST_CURRENCY` | USD |
+
+So a High-risk flight is 50% × ($250 + $200 + 8 h × $90) = 50% × $1,170, shown as about $590. Expected amounts are rounded to the nearest 10.
+
+- `GET /api/disruption-cost?riskLevel=High&mode=flight` returns the estimate with each cost item and how it was worked out.
+- The admin dashboard (`costAtRisk` in `GET /api/admin/dashboard`) adds up trips dated today or later, since past trips can't be changed.
+- Estimates are worked out when a trip is read, so new amounts apply to every saved trip after a restart. The app refuses to start if a chance is outside 0 to 1 or an amount is negative.
 
 ## Error Responses
 

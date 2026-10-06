@@ -3285,3 +3285,326 @@ summary {
         gap: 4px;
     }
 }
+
+/* Estimated cost of disruption */
+.estimate-tag {
+    display: inline-block;
+    padding: 2px 8px;
+    border: 1px dashed var(--border-hover);
+    border-radius: 999px;
+    color: var(--text-muted);
+    font-size: 0.66rem;
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+.disruption-cost-section {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr);
+    gap: 18px 28px;
+    margin: 28px 0;
+    padding: 22px;
+    border: 1px solid var(--border-color);
+    border-left: 4px solid var(--risk-info);
+    border-radius: var(--radius-md);
+    background: var(--bg-card);
+    box-shadow: var(--shadow-sm);
+}
+
+.disruption-cost-section.high { border-left-color: var(--risk-high); }
+.disruption-cost-section.medium { border-left-color: var(--risk-medium); }
+.disruption-cost-section.low { border-left-color: var(--risk-low); }
+
+.disruption-cost-title {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.disruption-cost-title .eyebrow {
+    margin: 0;
+}
+
+.disruption-cost-amount {
+    margin: 10px 0 0;
+    color: var(--text-main);
+    line-height: 1;
+}
+
+.disruption-cost-approx {
+    color: var(--text-muted);
+    font-size: 1rem;
+    font-weight: 700;
+}
+
+.disruption-cost-amount strong {
+    font-size: 2.4rem;
+    letter-spacing: -0.04em;
+}
+
+.disruption-cost-section.high .disruption-cost-amount strong { color: var(--risk-high); }
+.disruption-cost-section.medium .disruption-cost-amount strong { color: var(--risk-medium); }
+
+.disruption-cost-caption {
+    margin: 6px 0 0;
+    color: var(--text-main);
+    font-size: 0.92rem;
+    font-weight: 700;
+}
+
+.disruption-cost-math {
+    margin: 10px 0 0;
+    color: var(--text-muted);
+    font-size: 0.82rem;
+    line-height: 1.45;
+}
+
+.disruption-cost-breakdown {
+    padding: 14px 16px;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    background: var(--bg-subtle);
+}
+
+.disruption-cost-breakdown-label {
+    margin: 0 0 8px;
+    color: var(--text-muted);
+    font-size: 0.7rem;
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+.disruption-cost-breakdown ul {
+    display: grid;
+    gap: 8px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.disruption-cost-breakdown li,
+.disruption-cost-total {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.disruption-cost-breakdown li span {
+    display: block;
+    color: var(--text-main);
+    font-size: 0.86rem;
+    font-weight: 700;
+}
+
+.disruption-cost-breakdown li small {
+    color: var(--text-muted);
+    font-size: 0.74rem;
+}
+
+.disruption-cost-breakdown li strong {
+    color: var(--text-main);
+    font-size: 0.9rem;
+    font-variant-numeric: tabular-nums;
+}
+
+.disruption-cost-total {
+    margin: 10px 0 0;
+    padding-top: 10px;
+    border-top: 1px solid var(--border-color);
+    color: var(--text-muted);
+    font-size: 0.8rem;
+    font-weight: 800;
+}
+
+.disruption-cost-total strong {
+    color: var(--text-main);
+    font-size: 0.95rem;
+    font-variant-numeric: tabular-nums;
+}
+
+.disruption-cost-note {
+    grid-column: 1 / -1;
+    margin: 0;
+    color: var(--text-muted);
+    font-size: 0.76rem;
+}
+
+.admin-cost-at-risk {
+    margin-bottom: 18px;
+    padding: 18px;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    background: var(--bg-card);
+}
+
+.admin-cost-at-risk:empty {
+    display: none;
+}
+
+.admin-cost-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 12px;
+}
+
+.admin-cost-header h3 {
+    margin: 0;
+    font-size: 1rem;
+}
+
+.admin-cost-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.3fr);
+    gap: 16px 24px;
+    align-items: start;
+}
+
+.admin-cost-total strong {
+    display: block;
+    color: var(--risk-high);
+    font-size: 2.1rem;
+    line-height: 1.05;
+    letter-spacing: -0.04em;
+}
+
+.admin-cost-total p:not(.admin-cost-savings) {
+    margin: 6px 0 4px;
+    color: var(--text-main);
+    font-size: 0.86rem;
+    font-weight: 700;
+    line-height: 1.4;
+}
+
+.admin-cost-total small {
+    color: var(--text-muted);
+    font-size: 0.76rem;
+}
+
+.admin-cost-label {
+    margin: 0 0 8px;
+    color: var(--text-muted);
+    font-size: 0.7rem;
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+.admin-cost-levels ul,
+.admin-cost-top ol {
+    display: grid;
+    gap: 8px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.admin-cost-levels li {
+    display: grid;
+    grid-template-columns: 82px minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 10px;
+    font-size: 0.8rem;
+}
+
+.admin-cost-level-name {
+    color: var(--text-main);
+    font-weight: 700;
+}
+
+.admin-cost-bar {
+    height: 8px;
+    border-radius: 999px;
+    background: var(--bg-subtle);
+    overflow: hidden;
+}
+
+.admin-cost-bar span {
+    display: block;
+    height: 100%;
+    border-radius: inherit;
+    background: var(--risk-low);
+}
+
+.admin-cost-levels li.high .admin-cost-bar span { background: var(--risk-high); }
+.admin-cost-levels li.medium .admin-cost-bar span { background: var(--risk-medium); }
+
+.admin-cost-levels strong,
+.admin-cost-top b {
+    font-variant-numeric: tabular-nums;
+}
+
+.admin-cost-top li {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.admin-cost-top li:last-child {
+    padding-bottom: 0;
+    border-bottom: 0;
+}
+
+.admin-cost-top strong {
+    display: block;
+    font-size: 0.84rem;
+}
+
+.admin-cost-top span {
+    color: var(--text-muted);
+    font-size: 0.74rem;
+}
+
+.admin-cost-note {
+    margin: 14px 0 0;
+    color: var(--text-muted);
+    font-size: 0.74rem;
+    line-height: 1.45;
+}
+
+.admin-cost-cell {
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 960px) {
+    .admin-cost-grid {
+        grid-template-columns: 1fr 1fr;
+    }
+
+    .admin-cost-top {
+        grid-column: 1 / -1;
+    }
+}
+
+@media (max-width: 720px) {
+    .disruption-cost-section,
+    .admin-cost-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .disruption-cost-section {
+        padding: 18px;
+    }
+
+    .disruption-cost-amount strong {
+        font-size: 2rem;
+    }
+}
+
+.admin-cost-savings {
+    margin: 10px 0 0;
+    padding: 8px 10px;
+    border-radius: var(--radius-sm);
+    background: var(--risk-low-bg);
+    color: var(--risk-low);
+    font-size: 0.8rem;
+    font-weight: 700;
+    line-height: 1.4;
+}

@@ -33,6 +33,7 @@ public class ApiMonitoringAspect {
       Map.entry("SourceHealthController.sourceHealth", "Data source health"),
       Map.entry("TravelPolicyController.policy", "Load travel policy"),
       Map.entry("TravelPolicyController.evaluate", "Check trip against policy"),
+      Map.entry("DisruptionCostController.estimate", "Disruption cost estimate"),
       Map.entry("ItineraryImportController.importItinerary", "Import itinerary"),
       Map.entry("ItineraryImportController.sample", "Download itinerary sample"));
 

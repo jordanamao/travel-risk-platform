@@ -6,6 +6,8 @@ import static org.mockito.Mockito.when;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.travelrisk.platform.TestAssessments;
 import com.travelrisk.platform.TestPolicies;
+import com.travelrisk.platform.cost.DisruptionCostService;
+import com.travelrisk.platform.cost.DisruptionCostSettings;
 import com.travelrisk.platform.database.entities.AssessmentHistory;
 import com.travelrisk.platform.database.entities.SavedTrip;
 import com.travelrisk.platform.database.entities.UserProfile;
@@ -13,6 +15,7 @@ import com.travelrisk.platform.monitoring.ApiMonitoringService;
 import com.travelrisk.platform.repository.AssessmentHistoryRepository;
 import com.travelrisk.platform.repository.SavedTripRepository;
 import com.travelrisk.platform.repository.TripNotificationRepository;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
@@ -44,7 +47,8 @@ class AdminDashboardServiceTest {
   @BeforeEach
   void setUp() {
     service = new AdminDashboardService(historyRepository, monitoringService, savedTripRepository, notificationRepository,
-        userProfileService, TestPolicies.defaultPolicy(), new ObjectMapper());
+        userProfileService, TestPolicies.defaultPolicy(), new DisruptionCostService(DisruptionCostSettings.defaults()),
+        new ObjectMapper());
   }
 
   @Test
@@ -80,6 +84,29 @@ class AdminDashboardServiceTest {
     assertThat(response.history()).hasSize(1);
     assertThat(response.history().getFirst().scoredBeforeFix()).isFalse();
     assertThat(response.trips().getFirst().employee().name()).isEqualTo("employee");
+    assertThat(response.trips().getFirst().cost().expected()).isEqualTo(590);
+  }
+
+  @Test
+  void costAtRiskCountsOnlyUpcomingTrips() throws Exception {
+    ObjectMapper objectMapper = new ObjectMapper();
+    String upcomingDate = LocalDate.now().plusDays(3).toString();
+    var upcoming = TestAssessments.assessment("Seattle, WA", "Denver, CO", upcomingDate, "flight", "High", 12);
+    var past = TestAssessments.assessment("Seattle, WA", "Denver, CO", "2020-01-01", "flight", "High", 12);
+    SavedTrip upcomingTrip = new SavedTrip("employee1@email.com", upcoming, objectMapper.writeValueAsString(upcoming));
+    SavedTrip pastTrip = new SavedTrip("employee1@email.com", past, objectMapper.writeValueAsString(past));
+    ReflectionTestUtils.setField(upcomingTrip, "id", 1L);
+    ReflectionTestUtils.setField(pastTrip, "id", 2L);
+    when(savedTripRepository.findAllByOrderByTravelDateAscUpdatedAtDesc()).thenReturn(List.of(pastTrip, upcomingTrip));
+    when(historyRepository.findTop50ByOrderByCreatedAtDesc()).thenReturn(List.of());
+    when(userProfileService.findAll(List.of("employee1@email.com"))).thenReturn(Map.of());
+    when(monitoringService.snapshot()).thenReturn(new ApiMonitoringService.MonitoringSnapshot(0, 0, 0, 1500, List.of(), List.of()));
+
+    var costAtRisk = service.getDashboard().costAtRisk();
+
+    assertThat(costAtRisk.trips()).isEqualTo(1);
+    assertThat(costAtRisk.expected()).isEqualTo(590);
+    assertThat(costAtRisk.topTrips()).extracting(trip -> trip.tripId()).containsExactly(1L);
   }
 
   @Test
