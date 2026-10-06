@@ -3257,3 +3257,258 @@ summary {
         gap: 4px;
     }
 }
+
+/* What should I do instead? */
+.alternatives {
+    display: grid;
+    gap: 14px;
+    margin: 0 0 24px;
+    padding: 20px 22px;
+    border: 1px solid var(--risk-info-border);
+    border-radius: 18px;
+    background: linear-gradient(160deg, #f5fbfd, var(--bg-card) 55%);
+    box-shadow: var(--shadow-sm);
+}
+
+.alternatives-header {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.alternatives-header .eyebrow {
+    margin: 0 0 4px;
+}
+
+.alternatives-header h3 {
+    margin: 0;
+    color: var(--text-main);
+    font-size: 1.2rem;
+    letter-spacing: -0.02em;
+}
+
+.alternatives-meta {
+    color: var(--text-muted);
+    font-size: 0.8rem;
+    font-weight: 700;
+}
+
+.alternatives-list {
+    display: grid;
+    gap: 10px;
+}
+
+.alternative-card {
+    display: flex;
+    justify-content: space-between;
+    gap: 18px;
+    padding: 14px 16px;
+    border: 1px solid var(--border-color);
+    border-left: 4px solid var(--risk-low);
+    border-radius: var(--radius-sm);
+    background: var(--bg-card);
+}
+
+.alternative-card.medium { border-left-color: var(--risk-medium); }
+.alternative-card.high { border-left-color: var(--risk-high); }
+
+.alternative-main {
+    display: grid;
+    gap: 8px;
+    min-width: 0;
+}
+
+.alternative-heading {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+}
+
+.alternative-heading > div {
+    display: grid;
+    gap: 2px;
+}
+
+.alternative-icon {
+    display: grid;
+    flex: none;
+    place-items: center;
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    background: var(--risk-info-bg);
+    color: var(--risk-info);
+}
+
+.alternative-icon svg {
+    width: 20px;
+    height: 20px;
+}
+
+.alternative-heading strong {
+    color: var(--text-main);
+    font-size: 1rem;
+}
+
+.alternative-when {
+    color: var(--text-muted);
+    font-size: 0.82rem;
+    font-weight: 600;
+}
+
+.alternative-best {
+    justify-self: start;
+    margin-bottom: 2px;
+    padding: 2px 8px;
+    border-radius: 9999px;
+    background: var(--risk-low-bg);
+    color: var(--risk-low);
+    font-size: 0.68rem;
+    font-weight: 800;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+}
+
+.alternative-reasons {
+    display: grid;
+    gap: 4px;
+    margin: 0 0 0 48px;
+    padding: 0;
+    list-style: none;
+}
+
+.alternative-reasons li {
+    position: relative;
+    padding-left: 14px;
+    color: var(--text-main);
+    font-size: 0.86rem;
+    line-height: 1.45;
+}
+
+.alternative-reasons li::before {
+    position: absolute;
+    top: 0.6em;
+    left: 0;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--risk-low);
+    content: "";
+}
+
+.alternative-side {
+    display: grid;
+    flex: none;
+    align-content: start;
+    justify-items: end;
+    gap: 6px;
+    text-align: right;
+}
+
+.alternative-score {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.alternative-level {
+    padding: 3px 10px;
+    border-radius: 9999px;
+    color: #ffffff;
+    font-size: 0.72rem;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+.alternative-level.low { background: var(--risk-low); }
+.alternative-level.medium { background: var(--risk-medium); }
+.alternative-level.high { background: var(--risk-high); }
+
+.alternative-points {
+    color: var(--text-main);
+    font-size: 1.05rem;
+    font-weight: 800;
+}
+
+.alternative-saved {
+    color: var(--risk-low);
+    font-size: 0.78rem;
+    font-weight: 700;
+}
+
+.alternative-side button {
+    margin-top: 4px;
+    padding: 7px 12px;
+    border: 1px solid var(--accent);
+    border-radius: var(--radius-sm);
+    background: var(--bg-card);
+    color: var(--accent);
+    font-size: 0.8rem;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.alternative-side button:hover {
+    background: var(--risk-info-bg);
+}
+
+.alternatives-empty {
+    margin: 0;
+    padding: 12px 14px;
+    border-radius: var(--radius-sm);
+    background: var(--bg-subtle);
+    color: var(--text-main);
+    font-size: 0.88rem;
+    line-height: 1.5;
+}
+
+.alternatives-note {
+    margin: 0;
+    color: var(--text-muted);
+    font-size: 0.78rem;
+    line-height: 1.45;
+}
+
+.alternative-skeleton {
+    height: 74px;
+    border-radius: var(--radius-sm);
+    background: linear-gradient(90deg, var(--bg-subtle), #e8eef5, var(--bg-subtle));
+    background-size: 200% 100%;
+    animation: alternative-shimmer 1.2s ease-in-out infinite;
+}
+
+@keyframes alternative-shimmer {
+    from { background-position: 100% 0; }
+    to { background-position: -100% 0; }
+}
+
+@media (max-width: 720px) {
+    .alternatives {
+        padding: 16px;
+    }
+
+    .alternative-card {
+        flex-direction: column;
+        gap: 12px;
+    }
+
+    .alternative-reasons {
+        margin-left: 0;
+    }
+
+    .alternative-side {
+        grid-template-columns: auto 1fr;
+        align-items: center;
+        justify-items: start;
+        text-align: left;
+    }
+
+    .alternative-side button {
+        grid-column: 1 / -1;
+        width: 100%;
+        margin-top: 2px;
+    }
+}

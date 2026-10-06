@@ -338,6 +338,18 @@
           </div>
         </div>
 
+        <section id="alternatives" class="alternatives hidden" aria-live="polite" aria-labelledby="alternatives-title">
+          <div class="alternatives-header">
+            <div>
+              <p class="eyebrow">What should I do instead?</p>
+              <h3 id="alternatives-title"></h3>
+            </div>
+            <span id="alternatives-meta" class="alternatives-meta"></span>
+          </div>
+          <div id="alternatives-list" class="alternatives-list"></div>
+          <p id="alternatives-note" class="alternatives-note"></p>
+        </section>
+
         <div class="at-a-glance" aria-label="Assessment highlights">
           <h3>At a glance</h3>
           <p class="score-flow">Scored from weather, official alerts, airport conditions, and road closures.</p>
@@ -479,7 +491,8 @@
 <script src="/trip-actions.js?v=admin-policy"></script>
 <script src="/travel-policy.js?v=admin-policy"></script>
 <script src="/admin-dashboard.js?v=admin-policy"></script>
-<script src="/results-rendering.js?v=admin-policy"></script>
+<script src="/results-rendering.js?v=alternatives"></script>
+<script src="/alternatives.js?v=alternatives"></script>
 <script src="/app.js?v=admin-policy"></script>
 </body>
 </html>

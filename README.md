@@ -100,7 +100,7 @@ While testing the live site, a **New York to San Francisco flight scored High (6
 - **8** live checks per assessment, run in parallel, with per-source status shown on every result.
 - **3-level** risk score with points, confidence, evidence and a recommendation.
 - **60 → 0 points** on the NY to SF flight after the road-closure fix (High → Low), with the driving case still correctly flagged Medium.
-- **69** automated tests run in CI on every push and pull request; `main` requires Maven tests and a Docker build to pass before merge.
+- **75** automated tests run in CI on every push and pull request; `main` requires Maven tests and a Docker build to pass before merge.
 - Deployed on Render with managed Postgres and three Flyway-managed tables, auto-deployed from `main`.
 
 ### Rolling it out at a company
@@ -130,6 +130,12 @@ The production deployment runs on Render with a managed Render Postgres database
 ### Risk Result
 
 ![Risk result page](docs/screenshots/risk-result.png)
+
+### What Should I Do Instead?
+
+For Medium and High trips, the result re-scores the same trip a day earlier or later, in the morning, afternoon or evening, and from nearby airports, using the same sources and point rules, and lists only the options that lower the score (`GET /api/analyze/alternatives`).
+
+![Safer re-scored options for a High risk trip](docs/screenshots/safer-alternatives.png)
 
 ### Admin Dashboard
 
@@ -170,7 +176,7 @@ cd travel-risk-platform
 mvn test
 ```
 
-Expected result: `Tests run: 69, Failures: 0, Errors: 0` and `BUILD SUCCESS` (verified on a fresh clone of `main` on 2026-10-06).
+Expected result: `Tests run: 75, Failures: 0, Errors: 0` and `BUILD SUCCESS` (verified on a fresh clone of `main` on 2026-10-06).
 
 **Health check:** `GET /health` returns `{"status":"UP"}`; Render uses it to decide when a new deploy is live.
 
@@ -286,7 +292,7 @@ Every API error returns the same JSON shape with an HTTP status code:
 
 In-process, fixed-window rate limiting protects two endpoints. Over the limit, the API returns `429` with a `Retry-After` header (seconds) and `{"error": "..."}`, and the request never reaches the controller.
 
-- `GET /api/analyze`: per authenticated user (JWT subject / session user); falls back to client IP when unauthenticated.
+- `GET /api/analyze` and `GET /api/analyze/alternatives`: per authenticated user (JWT subject / session user); falls back to client IP when unauthenticated.
 - `POST /api/auth/token`: per client IP, stricter, to slow down password guessing.
 
 | Property (env var) | Default | Meaning |
