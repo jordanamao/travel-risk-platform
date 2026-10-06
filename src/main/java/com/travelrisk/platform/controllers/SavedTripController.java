@@ -8,7 +8,6 @@ import java.security.Principal;
 import java.util.List;
 import java.util.Map;
 import org.springframework.web.bind.annotation.DeleteMapping;
-import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -46,10 +45,6 @@ public class SavedTripController {
     return Map.of("status", "deleted");
   }
 
-  @ExceptionHandler(IllegalArgumentException.class)
-  public org.springframework.http.ResponseEntity<Map<String, String>> badRequest(IllegalArgumentException error) {
-    return org.springframework.http.ResponseEntity.badRequest().body(Map.of("error", error.getMessage()));
-  }
 
   public record SaveTripRequest(@NotNull TravelRiskService.Assessment assessment) {}
 }

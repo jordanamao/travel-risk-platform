@@ -1,17 +1,17 @@
 package com.travelrisk.platform.ratelimit;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.travelrisk.platform.web.ApiErrorWriter;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.time.Duration;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.MediaType;
 import org.springframework.security.authentication.AnonymousAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -29,16 +29,19 @@ public class RateLimitFilter extends OncePerRequestFilter {
   static final String TOKEN_PATH = "/api/auth/token";
 
   private final boolean enabled;
+  private final ApiErrorWriter errorWriter;
   private final FixedWindowRateLimiter analyzeLimiter;
   private final FixedWindowRateLimiter tokenLimiter;
 
   public RateLimitFilter(
+      ObjectMapper objectMapper,
       @Value("${travel-risk.rate-limit.enabled:true}") boolean enabled,
       @Value("${travel-risk.rate-limit.analyze.requests:30}") int analyzeRequests,
       @Value("${travel-risk.rate-limit.analyze.window:60s}") Duration analyzeWindow,
       @Value("${travel-risk.rate-limit.token.requests:10}") int tokenRequests,
       @Value("${travel-risk.rate-limit.token.window:60s}") Duration tokenWindow) {
     this.enabled = enabled;
+    this.errorWriter = new ApiErrorWriter(objectMapper);
     Clock clock = Clock.systemUTC();
     this.analyzeLimiter = new FixedWindowRateLimiter(analyzeRequests, analyzeWindow, clock);
     this.tokenLimiter = new FixedWindowRateLimiter(tokenRequests, tokenWindow, clock);
@@ -62,12 +65,9 @@ public class RateLimitFilter extends OncePerRequestFilter {
       return;
     }
     long retryAfterSeconds = Math.max(1, (decision.retryAfter().toMillis() + 999) / 1000);
-    response.setStatus(HttpStatus.TOO_MANY_REQUESTS.value());
     response.setHeader(HttpHeaders.RETRY_AFTER, Long.toString(retryAfterSeconds));
-    response.setContentType(MediaType.APPLICATION_JSON_VALUE);
-    response.setCharacterEncoding(StandardCharsets.UTF_8.name());
-    response.getWriter().write(
-        "{\"error\":\"Too many requests. Retry after " + retryAfterSeconds + " seconds.\"}");
+    errorWriter.write(response, HttpStatus.TOO_MANY_REQUESTS,
+        "Too many requests. Retry after " + retryAfterSeconds + " seconds.");
   }
 
   private FixedWindowRateLimiter limiterFor(HttpServletRequest request) {

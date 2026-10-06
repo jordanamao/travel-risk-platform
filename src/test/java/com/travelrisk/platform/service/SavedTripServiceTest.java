@@ -1,5 +1,6 @@
 package com.travelrisk.platform.service;
 
+import com.travelrisk.platform.web.ResourceNotFoundException;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
@@ -65,8 +66,8 @@ class SavedTripServiceTest {
     when(repository.findByIdAndUsername(99L, "employee")).thenReturn(Optional.empty());
 
     assertThatThrownBy(() -> service.delete("employee", 99L))
-        .isInstanceOf(IllegalArgumentException.class)
-        .hasMessage("Saved trip not found");
+        .isInstanceOf(ResourceNotFoundException.class)
+        .hasMessage("Saved trip not found.");
   }
 
   private static String write(ObjectMapper objectMapper, TravelRiskService.Assessment assessment) {

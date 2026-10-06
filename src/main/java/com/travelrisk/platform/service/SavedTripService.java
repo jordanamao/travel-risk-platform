@@ -1,5 +1,6 @@
 package com.travelrisk.platform.service;
 
+import com.travelrisk.platform.web.ResourceNotFoundException;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -64,7 +65,7 @@ public class SavedTripService {
   @Transactional
   public void delete(String username, Long id) {
     SavedTrip savedTrip = repository.findByIdAndUsername(id, username)
-        .orElseThrow(() -> new IllegalArgumentException("Saved trip not found"));
+        .orElseThrow(() -> new ResourceNotFoundException("Saved trip not found."));
     notificationRepository.deleteByUsernameAndSavedTripId(username, id);
     repository.delete(savedTrip);
   }
