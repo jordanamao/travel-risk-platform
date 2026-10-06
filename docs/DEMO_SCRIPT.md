@@ -6,8 +6,8 @@ A talk track for a screen recording that walks an **operations manager** through
 
 - [ ] Open the [live app](https://travel-risk-platform.onrender.com) once a few minutes early so Render wakes up and the first check is fast.
 - [ ] Pick tonight's risky route. Check the [NWS alerts map](https://www.weather.gov/) or [FAA NAS status](https://nasstatus.faa.gov/) for a city with storms or a ground stop, and run it once to confirm it scores **Medium or High**. Have a calm route ready too (for example New York, NY to San Francisco, CA, flight).
-- [ ] Save two or three trips as `employee1@email.com` and `employee5@email.com` so the admin dashboard has data.
-- [ ] Have the admin credentials ready in a second browser profile or private window.
+- [ ] Use only the public demo accounts on camera: the employee demo login and the **read-only demo admin** (TODO: fill in its login once the demo-data PR merges). Never sign in with your real admin account while recording.
+- [ ] Sign in as the demo admin in a second browser profile or private window before you start, and check that the seeded demo trips show on the dashboard.
 - [ ] Browser at 100% zoom, notifications off, bookmarks bar hidden.
 
 ## Talk track
@@ -40,9 +40,9 @@ A talk track for a screen recording that walks an **operations manager** through
 
 ### 1:10 to 1:40, the operations manager's view
 
-*Switch to the admin window and open the dashboard.*
+*Switch to the private window where you're signed in as the read-only demo admin, and open the dashboard.*
 
-> "Now I'm the operations manager. Every employee's upcoming trips, sorted by date, how many are high risk, and unread alerts, in one view. This is my morning check: which trips do I need to move today? Employees only ever see their own trips, and every assessment is kept, so if anyone asks what we knew and when, there's a record."
+> "Now I'm the operations manager. Every employee's upcoming trips, sorted by date, how many are high risk, and unread alerts, in one view. This is my morning check: which trips do I need to move today? Employees only ever see their own trips, and every assessment is kept, so if anyone asks what we knew and when, there's a record. This is a read-only demo admin on sample data, and the login is in the README, so you can try this view yourself."
 
 *Scroll to **API monitoring**.*
 
