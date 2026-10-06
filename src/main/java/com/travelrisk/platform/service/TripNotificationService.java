@@ -1,5 +1,6 @@
 package com.travelrisk.platform.service;
 
+import com.travelrisk.platform.web.ResourceNotFoundException;
 import com.travelrisk.platform.database.entities.TripNotification;
 import com.travelrisk.platform.repository.TripNotificationRepository;
 import java.util.List;
@@ -24,7 +25,7 @@ public class TripNotificationService {
   @Transactional
   public TripNotificationResponse markRead(String username, Long id) {
     TripNotification notification = repository.findByIdAndUsername(id, username)
-        .orElseThrow(() -> new IllegalArgumentException("Notification not found"));
+        .orElseThrow(() -> new ResourceNotFoundException("Notification not found."));
     notification.markRead();
     return toResponse(repository.save(notification));
   }

@@ -76,7 +76,7 @@ class RateLimitFilterIntegrationTest {
         .andExpect(status().isTooManyRequests())
         .andExpect(header().exists("Retry-After"))
         .andExpect(header().string("Retry-After", org.hamcrest.Matchers.matchesPattern("[1-9]\\d*")))
-        .andExpect(jsonPath("$.error").isNotEmpty());
+        .andExpect(jsonPath("$.error").value(org.hamcrest.Matchers.startsWith("Too many requests.")));
 
     verify(travelRiskService, times(2)).analyze(anyString(), anyString(), anyString(), anyString(), anyString(), anyString());
   }
@@ -127,7 +127,7 @@ class RateLimitFilterIntegrationTest {
     mockMvc.perform(tokenRequest("10.3.0.1"))
         .andExpect(status().isTooManyRequests())
         .andExpect(header().exists("Retry-After"))
-        .andExpect(jsonPath("$.error").isNotEmpty());
+        .andExpect(jsonPath("$.error").value(org.hamcrest.Matchers.startsWith("Too many requests.")));
 
     mockMvc.perform(tokenRequest("10.3.0.2")).andExpect(status().isOk());
   }
