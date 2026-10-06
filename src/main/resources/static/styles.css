@@ -2977,7 +2977,9 @@ summary {
     .admin-section-toolbar {
         align-items: flex-start;
         flex-direction: column;
-=======
+    }
+}
+
 /* Itinerary import and company travel policy */
 .policy-badge {
     display: inline-flex;

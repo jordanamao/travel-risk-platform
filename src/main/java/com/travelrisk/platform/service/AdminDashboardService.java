@@ -42,17 +42,14 @@ public class AdminDashboardService {
       ApiMonitoringService monitoringService,
       SavedTripRepository savedTripRepository,
       TripNotificationRepository notificationRepository,
-
-      UserProfileService userProfileService) {
-      this.userProfileService = userProfileService;
-
+      UserProfileService userProfileService,
       TravelPolicyService policyService,
       ObjectMapper objectMapper) {
-
     this.historyRepository = historyRepository;
     this.monitoringService = monitoringService;
     this.savedTripRepository = savedTripRepository;
     this.notificationRepository = notificationRepository;
+    this.userProfileService = userProfileService;
     this.policyService = policyService;
     this.objectMapper = objectMapper;
   }
