@@ -2399,3 +2399,368 @@ summary {
         transition-duration: 0.01ms !important;
     }
 }
+
+/* Risk checker page cleanup */
+@media (max-width: 960px) {
+    .shell {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+
+.trip-form input[type="date"] {
+    font-family: inherit;
+    font-variant-numeric: tabular-nums;
+}
+
+.route-fields {
+    position: relative;
+    display: grid;
+    gap: 12px;
+}
+
+.route-fields .route-swap-button {
+    position: absolute;
+    top: 50%;
+    right: 0;
+    z-index: 2;
+    width: 30px;
+    height: 30px;
+    min-height: 0;
+    padding: 0;
+    border: 1px solid var(--border-color);
+    border-radius: 50%;
+    background: var(--bg-card);
+    color: var(--accent);
+    font-size: 1rem;
+    line-height: 1;
+    box-shadow: var(--shadow-sm);
+    transform: translateY(-25%);
+}
+
+.route-fields .route-swap-button:hover,
+.route-fields .route-swap-button:focus-visible {
+    background: var(--risk-info-bg);
+    color: var(--accent);
+    transform: translateY(-25%);
+}
+
+.route-fields .route-swap-button--active {
+    transform: translateY(-25%) rotate(180deg);
+}
+
+.airport-preferences .form-row {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+}
+
+.airport-preferences select {
+    padding-left: 10px;
+    padding-right: 6px;
+}
+
+.airport-preferences .field-note {
+    display: block;
+    margin: 8px 0 0;
+    line-height: 1.45;
+}
+
+.save-trip-hint {
+    margin: -4px 0 0;
+    text-align: right;
+}
+
+/* Empty state: intro, sample, and the trips card fill the right column */
+.empty-state {
+    display: grid;
+    gap: 16px;
+    padding: 0;
+    border: 0;
+    background: none;
+    text-align: left;
+}
+
+.empty-intro {
+    padding: 24px 26px;
+    border: 1px solid var(--border-color);
+    border-radius: 14px;
+    background:
+        radial-gradient(ellipse at 0% 0%, rgba(23, 107, 135, 0.08), transparent 70%),
+        var(--bg-subtle);
+}
+
+.empty-intro h2 {
+    margin-bottom: 6px;
+    font-size: 1.4rem;
+}
+
+.empty-state .empty-intro p {
+    max-width: none;
+    margin: 0;
+}
+
+.sample-preview {
+    display: grid;
+    gap: 10px;
+    padding: 18px 20px;
+    border: 1px solid var(--border-color);
+    border-left: 4px solid var(--risk-low);
+    border-radius: 14px;
+    background: var(--bg-card);
+}
+
+.sample-preview-header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 6px 10px;
+}
+
+.sample-tag {
+    padding: 2px 8px;
+    border-radius: 999px;
+    background: var(--bg-subtle);
+    color: var(--text-muted);
+    font-size: 0.7rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+}
+
+.sample-meta {
+    color: var(--risk-low);
+    font-size: 0.82rem;
+    font-weight: 700;
+}
+
+.sample-preview p {
+    margin: 0;
+    color: var(--text-muted);
+    font-size: 0.86rem;
+}
+
+.sample-preview button,
+.show-all-button {
+    justify-self: start;
+    align-self: flex-start;
+    padding: 7px 12px;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    background: var(--bg-card);
+    color: var(--accent);
+    font: inherit;
+    font-size: 0.8rem;
+    font-weight: 800;
+    cursor: pointer;
+}
+
+.sample-preview button:hover,
+.show-all-button:hover {
+    border-color: var(--border-hover);
+    background: var(--bg-subtle);
+}
+
+.empty-state .saved-trips-panel {
+    margin-top: 0;
+    background: var(--bg-card);
+}
+
+.saved-trips-header {
+    align-items: center;
+}
+
+.saved-trips-header h2 {
+    font-size: 1.02rem;
+}
+
+.saved-trips-actions {
+    flex-wrap: nowrap;
+    gap: 6px;
+}
+
+.saved-trips-header button {
+    padding: 4px 9px;
+    border-radius: 999px;
+    font-size: 0.72rem;
+    font-weight: 700;
+}
+
+.saved-trips-header .icon-button {
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    font-size: 0.95rem;
+    line-height: 1;
+}
+
+/* At a glance */
+.glance-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+@media (max-width: 1100px) {
+    .glance-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 520px) {
+    .glance-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+.impact-note {
+    grid-column: 1 / -1;
+    margin: 0;
+    color: var(--text-muted);
+    font-size: 0.8rem;
+}
+
+.card-footer {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.points-chip {
+    margin-top: 8px;
+    color: var(--text-muted);
+    font-size: 0.78rem;
+    font-weight: 800;
+}
+
+.card .meta {
+    text-transform: none;
+    letter-spacing: 0;
+    font-size: 0.75rem;
+}
+
+.card:hover {
+    border-color: var(--border-hover);
+    box-shadow: var(--shadow-sm);
+}
+
+.evidence-group summary:hover {
+    background: #f1f5f9;
+}
+
+.evidence-group-body .show-all-button {
+    margin-top: 2px;
+}
+
+/* One accent for the evidence sections; risk colors stay on risk badges only */
+.subsection,
+.sources-subsection,
+.signals-subsection,
+.evidence-subsection,
+.glossary-subsection {
+    border-left: 1px solid var(--border-color);
+}
+
+/* Disclosures match the padding of the other subsections */
+.source-disclosure summary {
+    align-items: flex-start;
+    padding: 18px 20px;
+}
+
+.source-disclosure summary::after {
+    margin-top: 1px;
+}
+
+.source-disclosure summary small {
+    margin-top: 4px;
+}
+
+.source-disclosure .sources-grid,
+.source-disclosure .glossary-body {
+    margin: 0;
+    padding: 0 20px 18px;
+}
+
+.source-name {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.9rem;
+    letter-spacing: 0;
+    text-transform: none;
+}
+
+.source-status {
+    padding: 1px 8px;
+    border-radius: 999px;
+    font-size: 0.7rem;
+    font-style: normal;
+    font-weight: 800;
+}
+
+.source-status.ok { background: var(--risk-low-bg); color: var(--risk-low); }
+.source-status.muted { background: var(--bg-subtle); color: var(--text-muted); }
+.source-status.failed { background: var(--risk-medium-bg); color: var(--risk-medium); }
+
+/* Glossary */
+.glossary-body {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 18px 28px;
+}
+
+.glossary-body h5 {
+    margin: 0 0 8px;
+    color: var(--text-muted);
+    font-size: 0.72rem;
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+.glossary-body dl {
+    display: grid;
+    grid-template-columns: minmax(0, 6.5rem) minmax(0, 1fr);
+    gap: 6px 12px;
+    margin: 0;
+}
+
+.glossary-body dt {
+    color: var(--text-main);
+    font-size: 0.82rem;
+    font-weight: 800;
+}
+
+.glossary-body dd {
+    margin: 0;
+    color: var(--text-muted);
+    font-size: 0.82rem;
+    line-height: 1.45;
+}
+
+@media (max-width: 720px) {
+    .glossary-body {
+        grid-template-columns: 1fr;
+    }
+
+    .glossary-body dl {
+        grid-template-columns: 1fr;
+        gap: 2px;
+    }
+
+    .glossary-body dd {
+        margin-bottom: 6px;
+    }
+}
+
+.empty-state .saved-trips-panel p {
+    max-width: none;
+    margin: 0;
+    text-align: left;
+}
+
+.subsection.source-disclosure {
+    padding: 0;
+}
+
+@media (max-width: 500px) {
+    .save-trip-hint {
+        text-align: center;
+    }
+}

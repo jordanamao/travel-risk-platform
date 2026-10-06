@@ -144,7 +144,7 @@ function populateAirportSelect(kind, locationValue) {
 
   const auto = document.createElement("option");
   auto.value = "";
-  auto.textContent = "Auto: nearest airports";
+  auto.textContent = "Auto (nearest)";
   select.appendChild(auto);
 
   for (const [value, label] of options) {

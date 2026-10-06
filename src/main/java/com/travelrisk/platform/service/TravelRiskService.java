@@ -150,7 +150,7 @@ public class TravelRiskService {
             new Source("National Weather Service API", "Active alerts and official point forecasts", "https://www.weather.gov/documentation/services-web-api"),
             new Source("Aviation Weather Center API", "METAR airport weather observations near the route endpoints", "https://aviationweather.gov/data/api/"),
             new Source("FAA NAS Status API", "Live airport ground stops, delay programs, arrival/departure delays, and airport closures", "https://nasstatus.faa.gov/api/airport-status-information"),
-            new Source("Road511 Traffic Data API", "Optional live traffic incidents and closures when ROAD511_API_KEY is configured", "https://www.road511.com/docs.html")));
+            new Source("Road511 Traffic Data API", "Live traffic incidents and closures, where available", "https://www.road511.com/docs.html")));
   }
 
   @CachePut(value = "tripAssessments", key = "{#rawOrigin, #rawDestination, #rawDate, #rawMode, #rawOriginAirport, #rawDestinationAirport}")
@@ -345,8 +345,8 @@ public class TravelRiskService {
     String jurisdiction = roadJurisdiction(origin, destination);
     if (road511ApiKey == null || road511ApiKey.isBlank()) {
       return new Bundle(List.of(new Evidence("Road511 Traffic Data API", "Road closures", "unknown",
-          "Road closure data not checked because ROAD511_API_KEY is not configured.",
-          orderedMap("jurisdiction", jurisdiction, "configuration", "Set ROAD511_API_KEY to enable live road closure checks."),
+          "Road closure data is not connected for this deployment.",
+          orderedMap("jurisdiction", jurisdiction),
           "https://www.road511.com/docs.html")), List.of());
     }
     String url = UriComponentsBuilder.fromUriString("https://api.road511.com/api/v1/events")
