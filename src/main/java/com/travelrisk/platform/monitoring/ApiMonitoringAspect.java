@@ -24,6 +24,8 @@ public class ApiMonitoringAspect {
       Map.entry("SavedTripController.delete", "Delete saved trip"),
       Map.entry("TripNotificationController.list", "Load notifications"),
       Map.entry("TripNotificationController.markRead", "Mark notification read"),
+      Map.entry("TripNotificationController.channels", "Load alert channels"),
+      Map.entry("TripNotificationController.send", "Send alert to email/Slack"),
       Map.entry("AdminDashboardController.dashboard", "Admin dashboard"),
       Map.entry("AdminDashboardController.clearAssessmentHistory", "Clear assessment history"),
       Map.entry("AuthController.token", "API sign-in"),

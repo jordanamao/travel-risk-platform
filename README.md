@@ -34,7 +34,7 @@ The information to prevent most of this is public, but it's spread across half a
 - **Eight live checks in parallel.** Forecasts at the origin, destination and route midpoint (Open-Meteo), NWS alerts at both ends, METAR airport weather, FAA NAS ground stops and delay programs, and Road511 closures.
 - **Plugs into the customer's own data.** Upload the booking export or calendar the company already has (CSV or .ics) and every trip is risk-checked and saved, with a per-row result so one bad row never blocks the rest.
 - **The customer's travel policy, as config.** A YAML rules file decides whether each trip is *Allowed*, needs a *Heads-up*, *Needs approval* or is *Blocked* (for example "High risk trips need manager approval"), so each company sets its own rules without a code change.
-- **Saved trips and alerts.** Employees save trips; a recheck compares the new score with the saved one and creates a notification when the risk level moves.
+- **Saved trips and alerts where people already are.** Employees save trips; a scheduled recheck compares the new score with the saved one and, when the risk level moves (say Medium to High), raises an in-app notification and sends the same alert by email and to Slack with the route, the change, the main reason, and a link back.
 - **An admin dashboard** with every employee's trips and their policy result, high-risk counts, recent assessments, and API monitoring (call counts, failures, slow calls).
 - **Production basics:** Google OAuth plus JWT for API clients, role-based access (employees only see their own data, `/api/admin/**` is admin-only), Postgres with Flyway migrations, caching, per-user rate limiting, a consistent `{"error": "..."}` error contract, health checks, CI on every push, and auto-deploy to Render from `main`.
 - **Run like a service, not a demo:** per-source health, alerts to the log and an optional Slack webhook when a data source goes down or slow, a [runbook](docs/RUNBOOK.md) for "a source is down, what happens", and seeded demo data so the live site always has trips to show.
@@ -100,7 +100,7 @@ While testing the live site, a **New York to San Francisco flight scored High (6
 - **8** live checks per assessment, run in parallel, with per-source status shown on every result.
 - **3-level** risk score with points, confidence, evidence and a recommendation.
 - **60 → 0 points** on the NY to SF flight after the road-closure fix (High → Low), with the driving case still correctly flagged Medium.
-- **69** automated tests run in CI on every push and pull request; `main` requires Maven tests and a Docker build to pass before merge.
+- **78** automated tests run in CI on every push and pull request; `main` requires Maven tests and a Docker build to pass before merge.
 - Deployed on Render with managed Postgres and three Flyway-managed tables, auto-deployed from `main`.
 
 ### Rolling it out at a company
@@ -143,6 +143,10 @@ The production deployment runs on Render with a managed Render Postgres database
 
 ![Company policy result on an assessment](docs/screenshots/policy-result.png)
 
+### Risk-Change Email
+
+![Risk-change alert email: Medium to High with the main reason](docs/screenshots/risk-alert-email.png)
+
 ## Run Locally
 
 ```bash
@@ -170,7 +174,7 @@ cd travel-risk-platform
 mvn test
 ```
 
-Expected result: `Tests run: 69, Failures: 0, Errors: 0` and `BUILD SUCCESS` (verified on a fresh clone of `main` on 2026-10-06).
+Expected result: `Tests run: 78, Failures: 0, Errors: 0` and `BUILD SUCCESS` (verified on a fresh clone of `main` on 2026-10-06).
 
 **Health check:** `GET /health` returns `{"status":"UP"}`; Render uses it to decide when a new deploy is live.
 
@@ -342,7 +346,24 @@ Saved trip endpoints:
 - `DELETE /api/trips/{id}` removes one saved trip owned by the signed-in user.
 - `POST /api/trips/alerts/check` rechecks saved trips and creates a notification when risk changes.
 - `GET /api/notifications` lists risk-change notifications for the signed-in user.
+- `POST /api/notifications/{id}/send` sends one notification to email/Slack now (`409` when no channel is set up, `429` if repeated within 2 minutes).
 - `POST /api/trips/import` imports a CSV or .ics itinerary (see [Itinerary Import And Travel Policy](#itinerary-import-and-travel-policy)).
+
+## Risk-Change Alerts By Email And Slack
+
+When a recheck moves a saved trip to a different risk level (Low, Medium, High), the alert goes out on every channel that is set up, after the database change commits and on a background thread, so a slow mail server never slows a check. Point changes inside the same level stay in the app. Each channel is off until its environment variables are set, so local runs and tests never send anything.
+
+| Variable | What it does |
+| --- | --- |
+| `RESEND_API_KEY` | Send email through [Resend](https://resend.com)'s HTTPS API. Use this on Render's free plan, which blocks outbound SMTP ports. |
+| `SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD` | Or send through any SMTP server (for example Gmail with an app password) on hosts that allow SMTP. |
+| `TRIP_ALERT_EMAIL_FROM` | Sender address. Defaults to `onboarding@resend.dev` for Resend, or the SMTP username. |
+| `TRIP_ALERT_EMAIL_TO` | Send every alert to this one inbox (a demo or a team list). Without it, alerts go to the email Google sign-in gave for the trip's owner; demo employee accounts have none, so they get no mail. |
+| `TRIP_ALERT_SLACK_WEBHOOK_URL` | Post alerts to a Slack channel through an incoming webhook. |
+| `TRIP_RECHECK_INTERVAL` | Recheck every upcoming saved trip on a timer, for example `6h`. Blank turns it off. |
+| `APP_BASE_URL` | Link used in alerts. Defaults to Render's `RENDER_EXTERNAL_URL`. |
+
+In the app, each notification has a **Send to email** button (shown only when a channel is set up) that sends that alert out on demand. The read-only demo admin can't use it.
 
 ## Deploy To Render
 
