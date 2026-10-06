@@ -43,13 +43,8 @@ class AdminDashboardServiceTest {
 
   @BeforeEach
   void setUp() {
-
-    service = new AdminDashboardService(
-        historyRepository, monitoringService, savedTripRepository, notificationRepository, userProfileService);
-
     service = new AdminDashboardService(historyRepository, monitoringService, savedTripRepository, notificationRepository,
-        TestPolicies.defaultPolicy(), new ObjectMapper());
-
+        userProfileService, TestPolicies.defaultPolicy(), new ObjectMapper());
   }
 
   @Test
@@ -79,7 +74,7 @@ class AdminDashboardServiceTest {
     assertThat(response.stats().highRiskTrips()).isEqualTo(1);
     assertThat(response.stats().unreadAlerts()).isEqualTo(2);
     assertThat(response.stats().historyRecords()).isEqualTo(3);
-    assertThat(response.trips()).hasSize(1)
+    assertThat(response.trips()).hasSize(1);
     assertThat(response.stats().highRiskChecks()).isEqualTo(1);
     assertThat(response.trips().get(0).policy().outcome()).isEqualTo("approval_required");
     assertThat(response.history()).hasSize(1);

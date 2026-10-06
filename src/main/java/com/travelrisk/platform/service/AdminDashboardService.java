@@ -11,16 +11,13 @@ import com.travelrisk.platform.policy.TravelPolicyService;
 import com.travelrisk.platform.repository.AssessmentHistoryRepository;
 import com.travelrisk.platform.repository.SavedTripRepository;
 import com.travelrisk.platform.repository.TripNotificationRepository;
-
+import java.time.Instant;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
-import java.time.Instant;
-import java.util.List;
-import java.util.Map;
-
 import java.util.stream.Stream;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -41,23 +38,19 @@ public class AdminDashboardService {
   private final TravelPolicyService policyService;
   private final ObjectMapper objectMapper;
 
-
   public AdminDashboardService(
       AssessmentHistoryRepository historyRepository,
       ApiMonitoringService monitoringService,
       SavedTripRepository savedTripRepository,
       TripNotificationRepository notificationRepository,
-
-      UserProfileService userProfileService) {
-      this.userProfileService = userProfileService;
-
+      UserProfileService userProfileService,
       TravelPolicyService policyService,
       ObjectMapper objectMapper) {
-
     this.historyRepository = historyRepository;
     this.monitoringService = monitoringService;
     this.savedTripRepository = savedTripRepository;
     this.notificationRepository = notificationRepository;
+    this.userProfileService = userProfileService;
     this.policyService = policyService;
     this.objectMapper = objectMapper;
   }
@@ -80,8 +73,8 @@ public class AdminDashboardService {
             .toList());
     return new AdminDashboardResponse(
         stats,
-        trips.stream().map(this::toResponse).toList(),
-        history.stream().map(this::toResponse).toList(),
+        trips.stream().map(trip -> toResponse(trip, profiles)).toList(),
+        history.stream().map(record -> toResponse(record, profiles)).toList(),
         monitoring,
         false);
   }
@@ -105,16 +98,21 @@ public class AdminDashboardService {
         trips.stream().map(SavedTrip::getUsername).distinct().count(),
         trips.stream().filter(trip -> "High".equalsIgnoreCase(trip.getRiskLevel())).count(),
         unread,
-        history.size());
+        history.size(),
+        history.stream()
+            .filter(item -> "High".equalsIgnoreCase(item.getRiskLevel()) && !item.getCreatedAt().isBefore(SCORING_FIX_AT))
+            .count());
+    List<AssessmentHistory> recent = history.stream().limit(50).toList();
+    Map<String, UserProfile> profiles = userProfileService.findAll(
+        Stream.concat(trips.stream().map(SavedTrip::getUsername), recent.stream().map(AssessmentHistory::getUsername))
+            .distinct()
+            .toList());
     return new AdminDashboardResponse(
         stats,
-        trips.stream().map(this::toResponse).toList(),
-        history.stream().limit(10).map(this::toResponse).toList(),
+        trips.stream().map(trip -> toResponse(trip, profiles)).toList(),
+        recent.stream().map(record -> toResponse(record, profiles)).toList(),
         monitoringService.snapshot(),
         true);
-        trips.stream().map(trip -> toResponse(trip, profiles)).toList(),
-        history.stream().map(record -> toResponse(record, profiles)).toList(),
-        monitoring);
   }
 
   @Transactional

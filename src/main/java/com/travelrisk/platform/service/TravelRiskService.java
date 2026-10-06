@@ -16,15 +16,12 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-
-import java.util.function.Consumer;
-
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
-
+import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.regex.Pattern;
@@ -49,17 +46,16 @@ import org.xml.sax.InputSource;
 @Service
 public class TravelRiskService {
   private static final Pattern AIRPORT_CODE = Pattern.compile("^[A-Z0-9]{3,4}$");
-
   private static final String UNAVAILABLE_STATUS = "Temporarily unavailable";
   private static final String NOT_CONFIGURED_STATUS = "Not configured";
   private static final int MAX_CACHED_GEOCODES = 500;
+
   private final RestClient restClient;
   private final ObjectMapper objectMapper;
   private final String userAgent;
   private final String openAiApiKey;
   private final String openAiModel;
   private final String road511ApiKey;
-
   private final Consumer<List<SourceCheck>> sourceCheckListener;
 
   /** Every external source a check consults, in the order results show them. */
@@ -70,7 +66,6 @@ public class TravelRiskService {
       new Source("Aviation Weather Center API", "METAR airport weather observations near the route endpoints", "https://aviationweather.gov/data/api/"),
       new Source("FAA NAS Status API", "Live airport ground stops, delay programs, arrival/departure delays, and airport closures", "https://nasstatus.faa.gov/api/airport-status-information"),
       new Source("Road511 Traffic Data API", "Live traffic incidents and closures, where available", "https://www.road511.com/docs.html"));
-  
   private final long sourceTimeoutMs;
   private final long aiTimeoutMs;
   // Outside calls are blocking I/O, so each gets its own virtual thread instead of
@@ -79,7 +74,6 @@ public class TravelRiskService {
   private final Map<String, GeoPoint> geocodeCache = new ConcurrentHashMap<>();
   // weather.gov maps a point to its forecast URL; that mapping rarely changes.
   private final Map<String, String> nwsForecastUrlCache = new ConcurrentHashMap<>();
-
 
   private final Map<String, GeoPoint> knownLocations = Map.ofEntries(
       city("new york, ny", "New York, NY, United States", 40.7128, -74.0060),
@@ -103,7 +97,6 @@ public class TravelRiskService {
       city("portland, or", "Portland, OR, United States", 45.5152, -122.6784),
       city("austin, tx", "Austin, TX, United States", 30.2672, -97.7431));
 
-  @Autowired
   public TravelRiskService(
       RestClient.Builder restClientBuilder,
       ObjectMapper objectMapper,
@@ -122,20 +115,27 @@ public class TravelRiskService {
       @Value("${travel-risk.openai.api-key}") String openAiApiKey,
       @Value("${travel-risk.openai.model}") String openAiModel,
       @Value("${travel-risk.road511.api-key:}") String road511ApiKey,
-
+      @Value("${travel-risk.analyze.source-timeout-ms:4000}") long sourceTimeoutMs,
+      @Value("${travel-risk.analyze.ai-timeout-ms:6000}") long aiTimeoutMs,
       SourceHealthMonitor sourceHealthMonitor) {
-    this(restClientBuilder, objectMapper, userAgent, openAiApiKey, openAiModel, road511ApiKey, sourceHealthMonitor::record);
+    this(restClientBuilder, objectMapper, userAgent, openAiApiKey, openAiModel, road511ApiKey,
+        sourceTimeoutMs, aiTimeoutMs, sourceHealthMonitor::record);
   }
 
   public TravelRiskService(RestClient.Builder restClientBuilder, ObjectMapper objectMapper, String userAgent,
-      String openAiApiKey, String openAiModel, String road511ApiKey) {
-    this(restClientBuilder, objectMapper, userAgent, openAiApiKey, openAiModel, road511ApiKey, checks -> {});
+      String openAiApiKey, String openAiModel, String road511ApiKey, long sourceTimeoutMs, long aiTimeoutMs) {
+    this(restClientBuilder, objectMapper, userAgent, openAiApiKey, openAiModel, road511ApiKey,
+        sourceTimeoutMs, aiTimeoutMs, checks -> {});
   }
 
   TravelRiskService(RestClient.Builder restClientBuilder, ObjectMapper objectMapper, String userAgent,
       String openAiApiKey, String openAiModel, String road511ApiKey, Consumer<List<SourceCheck>> sourceCheckListener) {
-      @Value("${travel-risk.analyze.source-timeout-ms:4000}") long sourceTimeoutMs,
-      @Value("${travel-risk.analyze.ai-timeout-ms:6000}") long aiTimeoutMs) {
+    this(restClientBuilder, objectMapper, userAgent, openAiApiKey, openAiModel, road511ApiKey, 4000, 6000, sourceCheckListener);
+  }
+
+  private TravelRiskService(RestClient.Builder restClientBuilder, ObjectMapper objectMapper, String userAgent,
+      String openAiApiKey, String openAiModel, String road511ApiKey, long sourceTimeoutMs, long aiTimeoutMs,
+      Consumer<List<SourceCheck>> sourceCheckListener) {
     this.sourceTimeoutMs = sourceTimeoutMs;
     this.aiTimeoutMs = aiTimeoutMs;
     this.restClient = restClientBuilder.defaultHeader(HttpHeaders.USER_AGENT, userAgent).build();
@@ -147,17 +147,14 @@ public class TravelRiskService {
     this.sourceCheckListener = sourceCheckListener;
   }
 
-
-  @Cacheable(value = "tripAssessments", key = "{#rawOrigin, #rawDestination, #rawDate, #rawMode, #rawOriginAirport, #rawDestinationAirport}",
-      unless = "#result.degraded()")
-
   @PreDestroy
   void shutdown() {
     ioExecutor.shutdownNow();
   }
 
-  @Cacheable(value = "tripAssessments", key = "{#rawOrigin, #rawDestination, #rawDate, #rawMode, #rawOriginAirport, #rawDestinationAirport}", sync = true)
-
+  // Not sync: Spring can't combine sync with unless, and degraded results must not be cached.
+  @Cacheable(value = "tripAssessments", key = "{#rawOrigin, #rawDestination, #rawDate, #rawMode, #rawOriginAirport, #rawDestinationAirport}",
+      unless = "#result.degraded()")
   public Assessment analyze(String rawOrigin, String rawDestination, String rawDate, String rawMode,
       String rawOriginAirport, String rawDestinationAirport) {
     String origin = clean(rawOrigin);
@@ -810,13 +807,13 @@ public class TravelRiskService {
     }
   }
 
-
   private CompletableFuture<TimedBundle> bundleFuture(BundleLoader loader, String source, String label, String location) {
-    return CompletableFuture.supplyAsync(() -> {
-      long start = System.nanoTime();
-      Bundle bundle = safeBundle(loader, source, label, location);
-      return new TimedBundle(source, bundle, bundleStatus(bundle), elapsedMs(start));
-    });
+    Bundle timedOut = new Bundle(List.of(new Evidence(source, label, "unknown", label + " took too long to respond during this check.",
+        orderedMap("location", location, "status", UNAVAILABLE_STATUS, "timeoutMs", sourceTimeoutMs), "")), List.of());
+    long start = System.nanoTime();
+    return CompletableFuture.supplyAsync(() -> safeBundle(loader, source, label, location), ioExecutor)
+        .completeOnTimeout(timedOut, sourceTimeoutMs, TimeUnit.MILLISECONDS)
+        .thenApply(bundle -> new TimedBundle(source, bundle, bundleStatus(bundle), elapsedMs(start)));
   }
 
   // Source clients never throw: a failed call becomes evidence whose details say it was unavailable.
@@ -866,12 +863,6 @@ public class TravelRiskService {
 
   private static long elapsedMs(long startNanos) {
     return (System.nanoTime() - startNanos) / 1_000_000;
-
-  private CompletableFuture<Bundle> bundleFuture(BundleLoader loader, String source, String label, String location) {
-    Bundle timedOut = new Bundle(List.of(new Evidence(source, label, "unknown", label + " took too long to respond during this check.",
-        orderedMap("location", location, "status", "Timed out after " + sourceTimeoutMs + " ms"), "")), List.of());
-    return CompletableFuture.supplyAsync(() -> safeBundle(loader, source, label, location), ioExecutor)
-        .completeOnTimeout(timedOut, sourceTimeoutMs, TimeUnit.MILLISECONDS);
   }
 
   private static <T> T await(CompletableFuture<T> future) {
@@ -881,7 +872,6 @@ public class TravelRiskService {
       if (error.getCause() instanceof RuntimeException cause) throw cause;
       throw error;
     }
-
   }
 
   private Map<String, Object> getMap(String url) {
