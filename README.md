@@ -1,6 +1,6 @@
 # Travel Risk Platform
 
-A travel desk tool that tells an operations team, before anyone gets on a plane or in a car, how likely a trip is to be disrupted and why. It pulls live weather, official alerts, airport delays and road closures into one score with the evidence behind it, saves trips, and flags them when the risk changes.
+**Know which trips are at risk before they're disrupted, and why.** Travel Risk Platform gives a company's travel or operations team one score per trip, built from live weather, official alerts, airport delays and road closures, with the evidence attached. It saves trips and flags them when the risk changes, so the team can move a trip the day before instead of rescuing a stranded employee the day of.
 
 **Live app:** [travel-risk-platform.onrender.com](https://travel-risk-platform.onrender.com) (demo login below) · **Demo script:** [docs/DEMO_SCRIPT.md](docs/DEMO_SCRIPT.md)
 
@@ -8,14 +8,27 @@ A travel desk tool that tells an operations team, before anyone gets on a plane 
 
 ### The problem
 
-A company's travel or operations manager is responsible for people on the road. Today the signal they need is scattered across half a dozen public sites: a weather forecast, a National Weather Service alert page, the FAA airport status map, aviation METARs and a state road-closure feed. Nobody checks all of them for every trip, so disruptions are found at the airport instead of the day before, when a trip can still be moved.
+Every company that sends people on the road pays for disruptions it could have seen coming:
 
-**Who it's for:**
+- **Missed meetings and lost deals** when a client visit falls through because a flight was ground-stopped.
+- **Stranded employees** and the scramble that follows: hotels, rebooking fees, a day of lost work.
+- **Duty of care.** Employers are expected to know when their travelers are heading into severe weather or a closure, and to act on it. "We didn't check" is not a good answer for HR, legal or the employee's family.
 
-- **Operations / travel managers** who need one view of every employee's upcoming trips, which ones are high risk, and what changed since yesterday.
-- **Employees** who want a quick "should I leave earlier or pick another day?" answer for their own trip, without seeing anyone else's.
+The information to prevent most of this is public, but it's spread across half a dozen sites: forecasts, National Weather Service alerts, FAA airport status, aviation weather reports and state road-closure feeds. No travel desk checks all of them for every trip, so disruptions are found at the airport instead of the day before, when the trip could still be moved.
 
-### What I built
+### Who it's for
+
+- **The buyer: a corporate travel, operations, or duty-of-care / HR lead** responsible for people on the road. They need one view of every employee's upcoming trips, which ones are at risk, what changed since yesterday, and a record that the company checked.
+- **The everyday user: employees** who want a fast "should I leave earlier or pick another day?" answer for their own trip, without seeing anyone else's.
+
+### The value
+
+- **Minutes per trip down to seconds.** Checking forecasts at both ends, NWS alerts, airport weather, FAA status and road closures by hand takes an estimated 10 to 15 minutes per trip; the app does all eight checks in one click, in seconds. *(Estimate based on visiting each source manually.)*
+- **Fewer surprise disruptions.** Saved trips are rechecked and raise an alert when the risk level changes, so a trip booked on a calm Monday gets flagged when a storm shows up on Thursday.
+- **Decisions people can defend.** Every score lists the signals and sources behind it, so a manager can explain a "move this trip" call to the traveler, their boss or an auditor.
+- **A duty-of-care record.** Assessments are stored with their timestamp, giving the company a history of what it knew and when.
+
+### What it does
 
 - **One risk score per trip, with the receipts.** A route and date go in; out comes Low / Medium / High, a points total, a confidence level, a plain-English summary and recommendation, and every signal and source that produced it. Operators can see *why*, not just a color.
 - **Eight live checks in parallel.** Forecasts at the origin, destination and route midpoint (Open-Meteo), NWS alerts at both ends, METAR airport weather, FAA NAS ground stops and delay programs, and Road511 closures.
@@ -84,10 +97,13 @@ While testing the live site, a **New York to San Francisco flight scored High (6
 - **31** automated tests run in CI on every push and pull request; `main` requires Maven tests and a Docker build to pass before merge.
 - Deployed on Render with managed Postgres and three Flyway-managed tables, auto-deployed from `main`.
 
-### What's next
+### Rolling it out at a company
 
-Airline-specific operations and a booked flight's live status, company travel policy rules, and alerting operators the moment a saved trip's risk changes.
-
+1. **Sign in with your company accounts.** Google sign-in works out of the box; admins are set by configuration, and employees only ever see their own trips.
+2. **Bring in the trips you already book.** Employees save trips today; importing booked itineraries from the travel booking system (a CSV or calendar export) so every trip is covered without retyping is the next integration.
+3. **Set your own policy.** Company rules such as "High risk trips need manager approval" and per-company risk thresholds belong in configuration, not code, so each customer can tune them.
+4. **Run the travel desk from the admin dashboard.** Upcoming trips across the company, high-risk counts, unread alerts and data-source health in one place.
+5. **Grow from there:** airline-specific operations and a booked flight's live status, and pushing alerts to the channels the team already uses.
 
 ## Production Application
 

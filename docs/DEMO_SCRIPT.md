@@ -1,6 +1,6 @@
 # Demo Script (2 minutes)
 
-A talk track for a screen recording that walks an **operations manager** through a risky trip and the admin dashboard. Speak to the manager's problem, not the code. Lines in quotes are what you say; the rest is what you click.
+A talk track for a screen recording that walks an **operations manager** through a risky trip and the admin dashboard. The viewer is a buyer: a travel, operations or duty-of-care lead. Speak to their problem and what they get, not the code. Lines in quotes are what you say; the rest is what you click.
 
 ## Before you record
 
@@ -16,7 +16,7 @@ A talk track for a screen recording that walks an **operations manager** through
 
 *Show the login page.*
 
-> "If you run operations for a company with people on the road, you find out about a ground stop or a winter storm at the airport, not the day before when you could still move the trip. The information is public, it's just spread across six different sites. I built one place that checks all of them."
+> "If you're responsible for people on the road, you usually find out about a ground stop or a winter storm when an employee calls you from the airport. By then it's a missed meeting, a rebooking fee and a lost day, and it's on you, because keeping travelers safe is part of the job. The warning signs were public the day before. They're just spread across six different sites nobody has time to check. Travel Risk Platform checks all of them for you."
 
 ### 0:15 to 0:50, a risky trip
 
@@ -30,37 +30,37 @@ A talk track for a screen recording that walks an **operations manager** through
 
 *Point at **Recommended action**, then click **Compare dates**.*
 
-> "The recommendation is the part a manager acts on. And if I want to move the trip, Compare dates shows which nearby day is safer."
+> "That check would take ten or fifteen minutes by hand; this took seconds. The recommendation is the part a manager acts on, and if I want to move the trip, Compare dates shows which nearby day is safer."
 
 ### 0:50 to 1:10, saving and alerts
 
 *Click **Save trip**, then **Check alerts**.*
 
-> "I save the trip. When conditions change, a recheck compares the new score with the saved one and raises a notification, so nobody has to remember to look again."
+> "I save the trip. When conditions change, a recheck compares the new score with the saved one and raises an alert. A trip booked on a calm Monday gets flagged when a storm shows up on Thursday, and nobody has to remember to look again."
 
 ### 1:10 to 1:40, the operations manager's view
 
 *Switch to the admin window and open the dashboard.*
 
-> "Now I'm the operations manager. I see every employee's upcoming trips sorted by date, how many are high risk, and unread alerts, in one view. Employees can only ever see their own trips; this view is admin-only."
+> "Now I'm the operations manager. Every employee's upcoming trips, sorted by date, how many are high risk, and unread alerts, in one view. This is my morning check: which trips do I need to move today? Employees only ever see their own trips, and every assessment is kept, so if anyone asks what we knew and when, there's a record."
 
 *Scroll to **API monitoring**.*
 
-> "And because this depends on outside data, it monitors itself: call counts, failures and slow calls per source, so I can tell the difference between a calm day and a broken feed."
+> "And because it depends on outside data, it monitors itself, so I can tell a calm day from a broken feed. I never have to wonder whether 'Low' really means low."
 
 ### 1:40 to 1:55, a bug I caught
 
 *Optional: show the README case study or PR #14 for a second.*
 
-> "One story from building it: a New York to San Francisco flight scored High, 60 points, because statewide California road closures each counted separately on a trip that never touches a road. I rolled them into one signal and stopped scoring roads for flights. Now it's Low, and a driving trip with the same closures is Medium."
+> "A score is only useful if you trust it. In testing, a New York to San Francisco flight scored High, 60 points, because statewide California road closures were each counted separately, on a trip that never touches a road. I rolled them into one signal and stopped scoring roads for flights. Now it's Low, and a driving trip with the same closures is Medium. False alarms train people to ignore alerts, so I treat them as bugs."
 
-### 1:55 to 2:00, close
+### 1:55 to 2:00, call to action
 
-> "Live data, one score you can explain, and a view for the person who's responsible. Thanks for watching."
+> "Rolling it out is simple: sign in with your company accounts, bring in the trips you already book, and set your own risk rules. If you send people on the road, let's run it on next week's trips and see which ones you'd want to move."
 
 ## 30-second pitch
 
-> "Travel Risk Platform tells an operations team, before anyone leaves, how likely a trip is to be disrupted and why. It checks eight live sources in parallel (weather forecasts, National Weather Service alerts, airport weather, FAA ground stops and road closures), turns them into one Low, Medium or High score with the evidence attached, and alerts when a saved trip's risk changes. Managers get a company-wide dashboard; employees only see their own trips. It's a Spring Boot app on Postgres with Google sign-in, caching, rate limiting, monitoring and CI, deployed on Render. The part I'm proudest of is that every score is explainable, which is how I caught and fixed a bug where road closures made a cross-country flight look High risk."
+> "Companies find out about travel disruptions when an employee calls from the airport, and by then it costs a missed meeting, a rebooking and a lost day, plus a duty-of-care problem. Travel Risk Platform tells the operations team, before anyone leaves, how likely a trip is to be disrupted and why. It checks eight live sources in parallel (weather forecasts, National Weather Service alerts, airport weather, FAA ground stops and road closures), turns them into one Low, Medium or High score with the evidence attached, and alerts when a saved trip's risk changes. Managers get a company-wide dashboard; employees only see their own trips. It's a Spring Boot app on Postgres with Google sign-in, caching, rate limiting, monitoring and CI, deployed on Render. Every score is explainable, so managers can defend the call to move a trip. Give me next week's trips and I'll show you which ones are at risk."
 
 ## If something goes wrong on camera
 
