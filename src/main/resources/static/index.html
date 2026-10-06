@@ -28,16 +28,26 @@
   <div id="admin-stats" class="admin-stats">
     <article>
       <span>Saved trips</span>
-      <strong>0</strong>
+      <strong data-stat="savedTrips">0</strong>
+      <small data-stat-note="savedTrips">&nbsp;</small>
     </article>
     <article>
-      <span>Employees</span>
-      <strong>0</strong>
+      <span>High-risk saved trips</span>
+      <strong data-stat="highRiskTrips">0</strong>
+      <small data-stat-note="highRiskTrips">&nbsp;</small>
     </article>
     <article>
-      <span>High risk</span>
-      <strong>0</strong>
+      <span>Risk checks</span>
+      <strong data-stat="historyRecords">0</strong>
+      <small data-stat-note="historyRecords">&nbsp;</small>
     </article>
+
+    <button type="button" class="admin-stat-link" id="admin-slow-calls-tile">
+      <span>Slow or failed calls</span>
+      <strong data-stat="slowOrFailed">0</strong>
+      <small data-stat-note="slowOrFailed">&nbsp;</small>
+    </button>
+
     <article>
       <span>Unread alerts</span>
       <strong>0</strong>
@@ -75,10 +85,39 @@
       </tbody>
     </table>
   </div>
-  <div class="admin-history-section">
-    <div class="admin-section-heading">
+  <details class="admin-section" data-section="saved-trips" open>
+    <summary>
+      <h3>Employee saved trips</h3>
+      <strong id="admin-trip-count" class="admin-count">0</strong>
+    </summary>
+    <div class="admin-table-shell">
+      <table class="admin-table">
+        <thead>
+        <tr>
+          <th>Employee</th>
+          <th>Trip</th>
+          <th>Date</th>
+          <th>Type</th>
+          <th>Risk</th>
+          <th>Updated</th>
+        </tr>
+        </thead>
+        <tbody id="admin-trips">
+        <tr>
+          <td colspan="6">Loading admin dashboard...</td>
+        </tr>
+        </tbody>
+      </table>
+    </div>
+  </details>
+  <details class="admin-section" data-section="history" open>
+    <summary>
       <h3>Assessment history</h3>
-      <button type="button" id="clear-assessment-history">Clear history</button>
+      <strong id="admin-history-count" class="admin-count">0</strong>
+    </summary>
+    <div class="admin-section-toolbar">
+      <p id="admin-history-note" class="section-note"></p>
+      <button type="button" id="clear-assessment-history" class="admin-danger-button">Clear history</button>
     </div>
     <div class="admin-table-shell">
       <table class="admin-table">
@@ -99,59 +138,54 @@
         </tbody>
       </table>
     </div>
-  </div>
-  <div class="admin-history-section">
-    <h3>API monitoring</h3>
-    <details class="admin-events-details">
-      <summary>
-        <span>API monitoring metrics</span>
-        <strong id="admin-monitoring-metric-count">0</strong>
-      </summary>
-      <div class="admin-table-shell admin-events-shell">
-        <table class="admin-table">
-          <thead>
-          <tr>
-            <th>Operation</th>
-            <th>Calls</th>
-            <th>Failures</th>
-            <th>Slow calls</th>
-            <th>Avg</th>
-            <th>Max</th>
-          </tr>
-          </thead>
-          <tbody id="admin-monitoring">
-          <tr>
-            <td colspan="6">No API monitoring data yet.</td>
-          </tr>
-          </tbody>
-        </table>
-      </div>
-    </details>
-    <details class="admin-events-details">
-      <summary>
-        <span>Slow and failed API events</span>
-        <strong id="admin-monitoring-event-count">0</strong>
-      </summary>
-      <div class="admin-table-shell admin-events-shell">
-        <table class="admin-table">
-          <thead>
-          <tr>
-            <th>Event</th>
-            <th>Operation</th>
-            <th>Duration</th>
-            <th>Error</th>
-            <th>Recorded</th>
-          </tr>
-          </thead>
-          <tbody id="admin-monitoring-events">
-          <tr>
-            <td colspan="5">No slow or failed API calls yet.</td>
-          </tr>
-          </tbody>
-        </table>
-      </div>
-    </details>
-  </div>
+    <button type="button" id="admin-history-toggle" class="admin-show-all hidden">Show all</button>
+  </details>
+  <details class="admin-section" data-section="monitoring" id="admin-monitoring-section">
+    <summary>
+      <h3>API monitoring</h3>
+      <strong id="admin-monitoring-event-count" class="admin-count">0</strong>
+    </summary>
+    <p id="admin-monitoring-note" class="section-note"></p>
+    <h4 class="admin-subheading">Slow and failed calls</h4>
+    <div class="admin-table-shell">
+      <table class="admin-table">
+        <thead>
+        <tr>
+          <th>Event</th>
+          <th>Operation</th>
+          <th>Duration</th>
+          <th>Error</th>
+          <th>Recorded</th>
+        </tr>
+        </thead>
+        <tbody id="admin-monitoring-events">
+        <tr>
+          <td colspan="5">No slow or failed API calls yet.</td>
+        </tr>
+        </tbody>
+      </table>
+    </div>
+    <h4 class="admin-subheading">All operations</h4>
+    <div class="admin-table-shell">
+      <table class="admin-table">
+        <thead>
+        <tr>
+          <th>Operation</th>
+          <th>Calls</th>
+          <th>Failures</th>
+          <th>Slow calls</th>
+          <th>Avg</th>
+          <th>Max</th>
+        </tr>
+        </thead>
+        <tbody id="admin-monitoring">
+        <tr>
+          <td colspan="6">No API monitoring data yet.</td>
+        </tr>
+        </tbody>
+      </table>
+    </div>
+  </details>
 </section>
 <main class="shell">
   <section class="panel input-panel">
@@ -478,10 +512,15 @@
 <script src="/app-state.js?v=split-frontend"></script>
 <script src="/api.js?v=split-frontend"></script>
 <script src="/form-controls.js?v=split-frontend"></script>
+
+<script src="/trip-actions.js?v=split-frontend"></script>
+<script src="/admin-dashboard.js?v=admin-cleanup"></script>
+<script src="/results-rendering.js?v=split-frontend"></script>
 <script src="/trip-actions.js?v=itinerary-policy"></script>
 <script src="/travel-policy.js?v=itinerary-policy"></script>
 <script src="/admin-dashboard.js?v=itinerary-policy"></script>
 <script src="/results-rendering.js?v=itinerary-policy"></script>
 <script src="/app.js?v=itinerary-policy"></script>
+
 </body>
 </html>

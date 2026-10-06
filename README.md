@@ -228,10 +228,12 @@ The login page will use `/oauth2/authorization/google` for Google sign-in.
 
 **What it shows** (`GET /api/admin/dashboard`):
 
-- Totals: saved trips, employees with saved trips, high-risk trips, unread alerts, and assessment history records.
-- Every employee's saved trips, ordered by travel date, with risk level and summary.
-- The 10 most recent trip assessments across all users. **Clear history** (`DELETE /api/admin/assessment-history`) deletes all of them and can't be undone.
-- API monitoring: call counts, failures and slow calls (at or above `SLOW_API_THRESHOLD_MS`, default 1500 ms), plus the last 25 slow or failed calls. These counters are in memory and reset on restart.
+- Four totals: saved trips (and how many employees saved them), high-risk saved trips, risk checks (and how many rated High since the Oct 6 scoring fix), and slow or failed API calls. Click the last one to jump to the details.
+- Every employee's saved trips, ordered by travel date. Employees show by name or email; Google accounts show their name after their next sign-in.
+- The 50 most recent risk checks across all users (5 shown until you click **Show all**). Checks recorded before the Oct 6 road-closure fix are marked, since their scores can read too high. **Clear history** (`DELETE /api/admin/assessment-history`) asks for confirmation, then deletes all of them and can't be undone.
+- API monitoring: one row per API endpoint with friendly names (Risk check, Load saved trips, ...), with call counts, failures and slow calls (at or above `SLOW_API_THRESHOLD_MS`, default 1500 ms), plus the last 25 slow or failed calls. These counters are in memory and reset on restart.
+
+Each section can be collapsed, and the browser remembers which ones you closed.
 
 ## Itinerary Import And Travel Policy
 
@@ -370,6 +372,8 @@ ROAD511_API_KEY
 ```
 
 `ROAD511_API_KEY` enables live road incident and closure checks. The FAA NAS airport status feed does not require an API key.
+
+A risk check calls its outside sources in parallel. Each source gets `ANALYZE_SOURCE_TIMEOUT_MS` (default 4000) before it is reported as too slow, and the AI summary gets `ANALYZE_AI_TIMEOUT_MS` (default 6000) before the built-in summary is used instead. `HTTP_CONNECT_TIMEOUT_MS` (default 2000) and `HTTP_READ_TIMEOUT_MS` (default 5000) cap each HTTP call.
 
 After Render gives you a public URL, add its Google OAuth redirect URI in Google Cloud:
 
