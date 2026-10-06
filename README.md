@@ -37,6 +37,7 @@ Then open `http://localhost:8080`.
 
 - Health check: `GET /health` returns `{"status":"UP"}` and is used by Render.
 - CI: GitHub Actions runs `mvn test` on every branch push and pull request.
+- Operations: [docs/RUNBOOK.md](docs/RUNBOOK.md) covers alerts, what happens when each data source is down, redeploy and rollback on Render, demo data, and every environment variable.
 
 ## Optional AI Summary
 

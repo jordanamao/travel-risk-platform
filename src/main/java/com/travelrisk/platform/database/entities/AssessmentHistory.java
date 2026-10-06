@@ -54,6 +54,10 @@ public class AssessmentHistory {
   protected AssessmentHistory() {}
 
   public AssessmentHistory(String username, TravelRiskService.Assessment assessment, String assessmentJson) {
+    this(username, assessment, assessmentJson, Instant.now());
+  }
+
+  public AssessmentHistory(String username, TravelRiskService.Assessment assessment, String assessmentJson, Instant createdAt) {
     TravelRiskService.Input input = assessment.input();
     this.username = clean(username).isBlank() ? "anonymous" : clean(username);
     this.origin = input.origin();
@@ -66,7 +70,7 @@ public class AssessmentHistory {
     this.riskPoints = assessment.score().points();
     this.summary = assessment.summary();
     this.assessmentJson = assessmentJson;
-    this.createdAt = Instant.now();
+    this.createdAt = createdAt;
   }
 
   public Long getId() {

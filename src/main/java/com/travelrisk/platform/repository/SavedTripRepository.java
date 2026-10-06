@@ -11,6 +11,8 @@ public interface SavedTripRepository extends JpaRepository<SavedTrip, Long> {
 
   List<SavedTrip> findAllByOrderByTravelDateAscUpdatedAtDesc();
 
+  List<SavedTrip> findByAssessmentJsonContaining(String text);
+
   long countByRiskLevelIgnoreCase(String riskLevel);
 
   @Query("select count(distinct trip.username) from SavedTrip trip")
