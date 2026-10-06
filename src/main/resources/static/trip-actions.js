@@ -190,12 +190,38 @@ async function checkAlerts() {
   }
 }
 
+let alertChannels = null;
+
+async function loadAlertChannels() {
+  if (alertChannels) return alertChannels;
+  try {
+    const response = await fetch("/api/notifications/channels");
+    const data = await readJsonResponse(response, "Unable to load alert channels");
+    alertChannels = response.ok && Array.isArray(data.channels) ? data.channels : [];
+  } catch {
+    alertChannels = [];
+  }
+  const note = document.querySelector("#alert-channels");
+  if (note) {
+    note.textContent = alertChannels.length
+        ? `Level changes (like Medium to High) are also sent to ${channelLabel(alertChannels)}.`
+        : "";
+    note.classList.toggle("hidden", !alertChannels.length);
+  }
+  return alertChannels;
+}
+
+function channelLabel(channels) {
+  return channels.join(" and ");
+}
+
 async function loadNotifications() {
   const container = document.querySelector("#notifications");
   const count = document.querySelector("#notification-count");
   container.innerHTML = `<p class="field-note">Loading notifications...</p>`;
 
   try {
+    await loadAlertChannels();
     const response = await fetch("/api/notifications");
     const notifications = await readJsonResponse(response, "Unable to load notifications");
     if (!response.ok) throw new Error(notifications.error || "Unable to load notifications");
@@ -226,18 +252,46 @@ function renderNotifications(notifications) {
         <p></p>
         <span></span>
       </div>
-      ${notification.read ? "" : `<button type="button">Mark read</button>`}
+      <div class="notification-actions">
+        ${alertChannels && alertChannels.length ? `<button type="button" class="send-alert"></button>` : ""}
+        ${notification.read ? "" : `<button type="button" class="mark-read">Mark read</button>`}
+      </div>
     `;
     item.querySelector("strong").textContent =
         `${notification.origin} to ${notification.destination}`;
     item.querySelector("p").textContent = notification.message;
     item.querySelector("span").textContent =
         `${friendlyDate(notification.date)} · ${formatNotificationTime(notification.createdAt)}`;
-    const button = item.querySelector("button");
-    if (button) {
-      button.addEventListener("click", () => markNotificationRead(notification.id));
+    const markRead = item.querySelector(".mark-read");
+    if (markRead) {
+      markRead.addEventListener("click", () => markNotificationRead(notification.id));
+    }
+    const send = item.querySelector(".send-alert");
+    if (send) {
+      send.textContent = `Send to ${channelLabel(alertChannels)}`;
+      send.addEventListener("click", () => sendNotification(notification.id, send));
     }
     container.appendChild(item);
+  }
+}
+
+async function sendNotification(id, button) {
+  const label = button.textContent;
+  button.disabled = true;
+  button.textContent = "Sending...";
+  try {
+    const response = await fetch(`/api/notifications/${id}/send`, { method: "POST" });
+    const data = await readJsonResponse(response, "Unable to send alert");
+    if (!response.ok) throw new Error(data.error || "Unable to send alert");
+    button.textContent = "Sent";
+  } catch (error) {
+    button.textContent = "Not sent";
+    button.title = error.message;
+  } finally {
+    setTimeout(() => {
+      button.disabled = false;
+      button.textContent = label;
+    }, 2000);
   }
 }
 

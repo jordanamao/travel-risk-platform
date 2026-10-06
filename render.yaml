@@ -30,6 +30,14 @@ services:
         value: "true"
       - key: ALERT_WEBHOOK_URL
         sync: false
+      - key: TRIP_RECHECK_INTERVAL
+        value: 6h
+      - key: RESEND_API_KEY
+        sync: false
+      - key: TRIP_ALERT_EMAIL_TO
+        sync: false
+      - key: TRIP_ALERT_SLACK_WEBHOOK_URL
+        sync: false
 
 databases:
   - name: travel-risk-platform-db
