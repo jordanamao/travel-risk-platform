@@ -92,6 +92,27 @@ mvn spring-boot:run
 
 The login page will use `/oauth2/authorization/google` for Google sign-in.
 
+## Admin Dashboard
+
+**Access:** set `TRAVEL_RISK_ADMIN_USERNAME` and `TRAVEL_RISK_ADMIN_PASSWORD` (both are required; changes apply on restart), then sign in with those credentials on `/login`. The dashboard appears on the main page only for that account. Employee and Google sign-ins never see it, and `/api/admin/**` returns `403` for them.
+
+**What it shows** (`GET /api/admin/dashboard`):
+
+- Totals: saved trips, employees with saved trips, high-risk trips, unread alerts, and assessment history records.
+- Every employee's saved trips, ordered by travel date, with risk level and summary.
+- The 10 most recent trip assessments across all users. **Clear history** (`DELETE /api/admin/assessment-history`) deletes all of them and can't be undone.
+- API monitoring: call counts, failures and slow calls (at or above `SLOW_API_THRESHOLD_MS`, default 1500 ms), plus the last 25 slow or failed calls. These counters are in memory and reset on restart.
+
+## Error Responses
+
+Every API error returns the same JSON shape with an HTTP status code:
+
+```json
+{ "error": "Origin is required. Date is required." }
+```
+
+`400` means invalid input, `401` not signed in, `403` not an admin, `404` the saved trip or notification doesn't exist, `429` rate limited, and `500` an unexpected server error (details go to the server log, not the response).
+
 ## Rate Limiting
 
 In-process, fixed-window rate limiting protects two endpoints. Over the limit, the API returns `429` with a `Retry-After` header (seconds) and `{"error": "..."}`, and the request never reaches the controller.

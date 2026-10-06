@@ -1,8 +1,9 @@
 package com.travelrisk.platform.config;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.travelrisk.platform.ratelimit.RateLimitFilter;
 import com.travelrisk.platform.security.JwtAuthenticationFilter;
-import jakarta.servlet.http.HttpServletResponse;
+import com.travelrisk.platform.web.ApiErrorWriter;
 import java.util.regex.Pattern;
 import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
@@ -10,6 +11,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
@@ -38,7 +40,9 @@ public class SecurityConfig {
       HttpSecurity http,
       ObjectProvider<ClientRegistrationRepository> clientRegistrations,
       JwtAuthenticationFilter jwtAuthenticationFilter,
-      RateLimitFilter rateLimitFilter) throws Exception {
+      RateLimitFilter rateLimitFilter,
+      ObjectMapper objectMapper) throws Exception {
+    ApiErrorWriter errorWriter = new ApiErrorWriter(objectMapper);
     http
         .csrf(csrf -> csrf.disable())
         .authorizeHttpRequests(auth -> auth
@@ -55,14 +59,14 @@ public class SecurityConfig {
         .exceptionHandling(exception -> exception
             .authenticationEntryPoint((request, response, authException) -> {
               if (request.getRequestURI().startsWith("/api/")) {
-                response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                errorWriter.write(response, HttpStatus.UNAUTHORIZED, "Sign in to access this resource.");
                 return;
               }
               new LoginUrlAuthenticationEntryPoint("/login").commence(request, response, authException);
             })
             .accessDeniedHandler((request, response, accessDeniedException) -> {
               if (request.getRequestURI().startsWith("/api/")) {
-                response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+                errorWriter.write(response, HttpStatus.FORBIDDEN, "You do not have permission to access this resource.");
                 return;
               }
               response.sendRedirect("/login");
