@@ -5,6 +5,7 @@ import static org.mockito.Mockito.when;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.travelrisk.platform.TestAssessments;
+import com.travelrisk.platform.TestPolicies;
 import com.travelrisk.platform.database.entities.AssessmentHistory;
 import com.travelrisk.platform.database.entities.SavedTrip;
 import com.travelrisk.platform.monitoring.ApiMonitoringService;
@@ -37,7 +38,8 @@ class AdminDashboardServiceTest {
 
   @BeforeEach
   void setUp() {
-    service = new AdminDashboardService(historyRepository, monitoringService, savedTripRepository, notificationRepository);
+    service = new AdminDashboardService(historyRepository, monitoringService, savedTripRepository, notificationRepository,
+        TestPolicies.defaultPolicy(), new ObjectMapper());
   }
 
   @Test
@@ -65,6 +67,7 @@ class AdminDashboardServiceTest {
     assertThat(response.stats().unreadAlerts()).isEqualTo(2);
     assertThat(response.stats().historyRecords()).isEqualTo(3);
     assertThat(response.trips()).hasSize(1);
+    assertThat(response.trips().get(0).policy().outcome()).isEqualTo("approval_required");
     assertThat(response.history()).hasSize(1);
   }
 }

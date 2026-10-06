@@ -25,6 +25,14 @@ The production deployment runs on Render with a managed Render Postgres database
 
 ![Admin dashboard](docs/screenshots/admin-dashboard.png)
 
+### Itinerary Import
+
+![Itinerary import results and company policy](docs/screenshots/itinerary-import.png)
+
+### Policy Result
+
+![Company policy result on an assessment](docs/screenshots/policy-result.png)
+
 ## Run Locally
 
 ```bash
@@ -103,6 +111,35 @@ The login page will use `/oauth2/authorization/google` for Google sign-in.
 - The 10 most recent trip assessments across all users. **Clear history** (`DELETE /api/admin/assessment-history`) deletes all of them and can't be undone.
 - API monitoring: call counts, failures and slow calls (at or above `SLOW_API_THRESHOLD_MS`, default 1500 ms), plus the last 25 slow or failed calls. These counters are in memory and reset on restart.
 
+## Itinerary Import And Travel Policy
+
+Companies already have their trips somewhere: a travel agency's booking export or a calendar. Instead of retyping each trip, a traveler (or an admin, for the whole company) uploads that file and every trip is risk-checked, saved, and checked against the company's travel policy.
+
+**Import** (`POST /api/trips/import`, multipart field `file`, or **Import** in *Your trips*):
+
+- **CSV** with a header row. Columns: `traveler_email, origin, destination, date, trip_type, origin_airport, destination_airport`. Only origin, destination and date are required. Common header variations (`From`, `Travel Date`, `Mode`, ...) and `MM/DD/YYYY` dates are accepted, because every customer's export is a little different.
+- **Calendar (.ics)**. Each event is one trip: `DTSTART` is the date, the title reads like `Flight: New York, NY (JFK) to Chicago, IL (ORD)`, and the first `ATTENDEE` email is the traveler. `X-TRAVEL-ORIGIN`, `X-TRAVEL-DESTINATION` and `X-TRAVEL-MODE` override the title.
+- Every row gets its own result. A bad row (a past date, an unknown trip type, a duplicate) is reported with its line number and never blocks the rest of the file.
+- Employees can only import their own trips; rows for someone else are skipped. Admins can import for any traveler.
+- Up to 25 trips and 256 KB per file (`ITINERARY_IMPORT_MAX_ROWS`). Dates must fall inside the 15-day forecast window.
+- `GET /api/trips/import/sample?format=csv|ics` downloads a sample dated from today. The copies in [`samples/`](samples/) are dated from 2026-10-06, so download a fresh one (or edit the dates) before importing them.
+
+**Travel policy.** Rules live in a YAML file, not in code, so each customer can have their own. The default is [`src/main/resources/travel-policy.yml`](src/main/resources/travel-policy.yml); point `TRAVEL_POLICY_LOCATION` at another file to swap it, for example `TRAVEL_POLICY_LOCATION=file:samples/acme-travel-policy.yml`.
+
+```yaml
+- id: high-risk-approval
+  name: High risk trip
+  action: require_approval     # allow, warn, require_approval or block
+  when:
+    minRiskLevel: High         # also: riskLevels, minPoints, modes, signalTypes
+  message: High risk trips need manager approval before booking.
+```
+
+- Every matching rule is listed on the trip, and the strictest action decides the result: *Allowed*, *Heads-up*, *Needs approval* or *Blocked*.
+- The result shows on the assessment, on each saved trip, and in a **Policy** column on the admin dashboard. `GET /api/policy` returns the active rules and `POST /api/policy/evaluate` checks an unsaved assessment.
+- Decisions are worked out when a trip is read, so a policy change applies to every saved trip after a restart.
+- The app checks the file at startup and refuses to start on a typo (unknown action, misspelled condition, duplicate id), rather than silently ignoring a rule.
+
 ## Error Responses
 
 Every API error returns the same JSON shape with an HTTP status code:
@@ -173,6 +210,7 @@ Saved trip endpoints:
 - `DELETE /api/trips/{id}` removes one saved trip owned by the signed-in user.
 - `POST /api/trips/alerts/check` rechecks saved trips and creates a notification when risk changes.
 - `GET /api/notifications` lists risk-change notifications for the signed-in user.
+- `POST /api/trips/import` imports a CSV or .ics itinerary (see [Itinerary Import And Travel Policy](#itinerary-import-and-travel-policy)).
 
 ## Deploy To Render
 

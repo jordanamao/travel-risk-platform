@@ -1,0 +1,57 @@
+# Company travel policy.
+#
+# Each rule says "when a trip looks like this, take this action". Every rule that matches is
+# listed on the trip, and the strictest action decides the trip's policy result:
+#   allow < warn < require_approval < block
+#
+# Conditions (all optional; every condition that is set must match):
+#   minRiskLevel  Low, Medium or High (the trip's risk level must be at least this)
+#   riskLevels    any of: Low, Medium, High (the trip's risk level must be one of these)
+#   minPoints     the trip's risk points must be at least this
+#   modes         any of: flight, drive, general
+#   signalTypes   any of: weather, wind, official-alert, aviation-weather, faa-airport-status, road-closure
+#
+# To use a different policy for a customer, point TRAVEL_POLICY_LOCATION at their file, for example
+#   TRAVEL_POLICY_LOCATION=file:/etc/travel-risk/acme-policy.yml
+# The app checks the file at startup and refuses to start if a rule is invalid.
+
+company: Demo Company
+updated: 2026-10-06
+
+rules:
+  - id: severe-disruption
+    name: Severe disruption risk
+    action: block
+    when:
+      minPoints: 18
+    message: Trips scoring 18 or more points can't be booked. Pick another date or route.
+
+  - id: high-risk-approval
+    name: High risk trip
+    action: require_approval
+    when:
+      minRiskLevel: High
+    message: High risk trips need manager approval before booking.
+
+  - id: airport-disruption
+    name: Airport delays or closures
+    action: warn
+    when:
+      modes: [flight]
+      signalTypes: [faa-airport-status]
+    message: The FAA reports delays or closures at an airport on this route. Confirm flight status with the airline.
+
+  - id: driving-hazard
+    name: Hazards on a driving route
+    action: warn
+    when:
+      modes: [drive]
+      signalTypes: [official-alert, road-closure]
+    message: Share your route and check-in times with your manager before driving.
+
+  - id: medium-risk-heads-up
+    name: Medium risk trip
+    action: warn
+    when:
+      riskLevels: [Medium]
+    message: Check conditions again the day before departure.

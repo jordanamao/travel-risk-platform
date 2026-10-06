@@ -40,6 +40,7 @@ function renderResults(data) {
   renderSources(data);
 
   renderEvidence(data);
+  renderPolicyResult(data);
 }
 
 // The trips card fills the empty right column before a result exists, then returns under the form.

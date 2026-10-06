@@ -1,0 +1,6 @@
+traveler_email,origin,destination,date,trip_type,origin_airport,destination_airport
+employee1@email.com,"New York, NY","Chicago, IL",2026-10-08,flight,JFK,ORD
+employee2@email.com,"Denver, CO","Seattle, WA",2026-10-09,flight,DEN,SEA
+employee1@email.com,"Boston, MA","Washington, DC",2026-10-11,drive,,
+employee3@email.com,"Dallas, TX","Austin, TX",2026-10-13,drive,,
+employee2@email.com,"Miami, FL","Atlanta, GA",2026-10-15,general,,

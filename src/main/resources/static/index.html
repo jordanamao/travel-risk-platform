@@ -64,12 +64,13 @@
         <th>Date</th>
         <th>Type</th>
         <th>Risk</th>
+        <th>Policy</th>
         <th>Updated</th>
       </tr>
       </thead>
       <tbody id="admin-trips">
       <tr>
-        <td colspan="6">Loading admin dashboard...</td>
+        <td colspan="7">Loading admin dashboard...</td>
       </tr>
       </tbody>
     </table>
@@ -234,9 +235,21 @@
         <div class="saved-trips-header">
           <h2>Your trips</h2>
           <div class="saved-trips-actions">
+            <button type="button" id="toggle-import" aria-expanded="false" aria-controls="import-panel" title="Import booked trips from a CSV or calendar file">Import</button>
             <button type="button" id="check-alerts" title="Re-check saved trips for risk changes">Check alerts</button>
             <button type="button" id="refresh-saved-trips" class="icon-button" aria-label="Refresh your trips" title="Refresh">↻</button>
           </div>
+        </div>
+        <div id="import-panel" class="import-panel hidden">
+          <p class="import-intro">Upload booked trips as a CSV or calendar (.ics) file. Each trip is risk-checked, saved here, and checked against company policy.</p>
+          <div class="import-actions">
+            <label class="import-file-button">
+              Choose file
+              <input type="file" id="import-file" accept=".csv,.ics,text/csv,text/calendar" />
+            </label>
+            <span class="import-samples">Sample: <a href="/api/trips/import/sample?format=csv">CSV</a> · <a href="/api/trips/import/sample?format=ics">.ics</a></span>
+          </div>
+          <div id="import-results" class="import-results" aria-live="polite"></div>
         </div>
         <div id="saved-trips" class="saved-trips-list">
           <p class="field-note">Saved assessments will appear here.</p>
@@ -250,6 +263,15 @@
             <p class="field-note">No risk-change alerts yet.</p>
           </div>
         </div>
+        <details class="policy-block">
+          <summary>
+            <span>Company travel policy</span>
+            <small id="policy-company"></small>
+          </summary>
+          <ul id="policy-rules" class="policy-rules">
+            <li class="field-note">Loading policy...</li>
+          </ul>
+        </details>
       </section>
     </div>
   </section>
@@ -305,6 +327,7 @@
               <p id="risk-trip-type"></p>
             </div>
             <p id="risk-summary"></p>
+            <div id="policy-result" class="policy-result hidden" aria-live="polite"></div>
             <div id="top-drivers" class="top-drivers"></div>
           </div>
         </div>
@@ -352,14 +375,15 @@
                   <li>Airport weather observations</li>
                   <li>FAA airport delays and closures</li>
                   <li>Road closures (511 traffic data)</li>
+                  <li>Company travel policy</li>
+                  <li>Itinerary import (CSV, calendar)</li>
                 </ul>
               </div>
               <div>
                 <span>Not included yet</span>
                 <ul>
                   <li>Airline-specific operations</li>
-                  <li>Booked itinerary status</li>
-                  <li>Private company policy</li>
+                  <li>Live booking changes</li>
                 </ul>
               </div>
             </div>
@@ -454,9 +478,10 @@
 <script src="/app-state.js?v=split-frontend"></script>
 <script src="/api.js?v=split-frontend"></script>
 <script src="/form-controls.js?v=split-frontend"></script>
-<script src="/trip-actions.js?v=split-frontend"></script>
-<script src="/admin-dashboard.js?v=split-frontend"></script>
-<script src="/results-rendering.js?v=split-frontend"></script>
-<script src="/app.js?v=split-frontend"></script>
+<script src="/trip-actions.js?v=itinerary-policy"></script>
+<script src="/travel-policy.js?v=itinerary-policy"></script>
+<script src="/admin-dashboard.js?v=itinerary-policy"></script>
+<script src="/results-rendering.js?v=itinerary-policy"></script>
+<script src="/app.js?v=itinerary-policy"></script>
 </body>
 </html>
