@@ -26,7 +26,11 @@ public class ApiMonitoringAspect {
       Map.entry("TripNotificationController.markRead", "Mark notification read"),
       Map.entry("AdminDashboardController.dashboard", "Admin dashboard"),
       Map.entry("AdminDashboardController.clearAssessmentHistory", "Clear assessment history"),
-      Map.entry("AuthController.token", "API sign-in"));
+      Map.entry("AuthController.token", "API sign-in"),
+      Map.entry("TravelPolicyController.policy", "Load travel policy"),
+      Map.entry("TravelPolicyController.evaluate", "Check trip against policy"),
+      Map.entry("ItineraryImportController.importItinerary", "Import itinerary"),
+      Map.entry("ItineraryImportController.sample", "Download itinerary sample"));
 
   private final ApiMonitoringService monitoringService;
   private final long slowCallThresholdMs;

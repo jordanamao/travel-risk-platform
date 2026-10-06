@@ -14,9 +14,7 @@ import com.travelrisk.platform.repository.TripNotificationRepository;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
-
 import java.util.stream.Stream;
-
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -36,23 +34,19 @@ public class AdminDashboardService {
   private final TravelPolicyService policyService;
   private final ObjectMapper objectMapper;
 
-
   public AdminDashboardService(
       AssessmentHistoryRepository historyRepository,
       ApiMonitoringService monitoringService,
       SavedTripRepository savedTripRepository,
       TripNotificationRepository notificationRepository,
-
-      UserProfileService userProfileService) {
-      this.userProfileService = userProfileService;
-
+      UserProfileService userProfileService,
       TravelPolicyService policyService,
       ObjectMapper objectMapper) {
-
     this.historyRepository = historyRepository;
     this.monitoringService = monitoringService;
     this.savedTripRepository = savedTripRepository;
     this.notificationRepository = notificationRepository;
+    this.userProfileService = userProfileService;
     this.policyService = policyService;
     this.objectMapper = objectMapper;
   }
