@@ -16,6 +16,8 @@ Every company that sends people on the road pays for disruptions it could have s
 
 The information to prevent most of this is public, but it's spread across half a dozen sites: forecasts, National Weather Service alerts, FAA airport status, aviation weather reports and state road-closure feeds. No travel desk checks all of them for every trip, so disruptions are found at the airport instead of the day before, when the trip could still be moved.
 
+**Where it fits:** Enterprise tools like Everbridge focus on traveler safety. This focuses on whether the trip itself will be disrupted, before you book.
+
 ### Who it's for
 
 - **The buyer: a corporate travel, operations, or duty-of-care / HR lead** responsible for people on the road. They need one view of every employee's upcoming trips, which ones are at risk, what changed since yesterday, and a record that the company checked.
@@ -34,9 +36,13 @@ The information to prevent most of this is public, but it's spread across half a
 - **Eight live checks in parallel.** Forecasts at the origin, destination and route midpoint (Open-Meteo), NWS alerts at both ends, METAR airport weather, FAA NAS ground stops and delay programs, and Road511 closures.
 - **Plugs into the customer's own data.** Upload the booking export or calendar the company already has (CSV or .ics) and every trip is risk-checked and saved, with a per-row result so one bad row never blocks the rest.
 - **The customer's travel policy, as config.** A YAML rules file decides whether each trip is *Allowed*, needs a *Heads-up*, *Needs approval* or is *Blocked* (for example "High risk trips need manager approval"), so each company sets its own rules without a code change.
+
 - **The cost of doing nothing.** Every result shows an estimated cost of disruption (rebooking fee, an extra hotel night, lost working time and missed meetings) weighted by the chance of disruption at that risk level, and the admin dashboard adds it up across upcoming trips. Amounts are config, so each company uses its own figures.
 - **Saved trips and alerts.** Employees save trips; a recheck compares the new score with the saved one and creates a notification when the risk level moves.
 - **An admin dashboard** with the money at risk across upcoming trips, every employee's trips with their policy result and estimated cost, high-risk counts, recent assessments, and API monitoring (call counts, failures, slow calls).
+
+- **Saved trips and alerts where people already are.** Employees save trips; a scheduled recheck compares the new score with the saved one and, when the risk level moves (say Medium to High), raises an in-app notification and sends the same alert by email and to Slack with the route, the change, the main reason, and a link back.
+- **An admin dashboard** with every employee's trips and their policy result, high-risk counts, recent assessments, and API monitoring (call counts, failures, slow calls).
 - **Production basics:** Google OAuth plus JWT for API clients, role-based access (employees only see their own data, `/api/admin/**` is admin-only), Postgres with Flyway migrations, caching, per-user rate limiting, a consistent `{"error": "..."}` error contract, health checks, CI on every push, and auto-deploy to Render from `main`.
 - **Run like a service, not a demo:** per-source health, alerts to the log and an optional Slack webhook when a data source goes down or slow, a [runbook](docs/RUNBOOK.md) for "a source is down, what happens", and seeded demo data so the live site always has trips to show.
 
@@ -144,9 +150,15 @@ The production deployment runs on Render with a managed Render Postgres database
 
 ![Company policy result on an assessment](docs/screenshots/policy-result.png)
 
+
 ### Cost Of Disruption
 
 ![Estimated cost of disruption on a risk result](docs/screenshots/disruption-cost.png)
+
+### Risk-Change Email
+
+![Risk-change alert email: Medium to High with the main reason](docs/screenshots/risk-alert-email.png)
+
 
 ## Run Locally
 
@@ -372,7 +384,24 @@ Saved trip endpoints:
 - `DELETE /api/trips/{id}` removes one saved trip owned by the signed-in user.
 - `POST /api/trips/alerts/check` rechecks saved trips and creates a notification when risk changes.
 - `GET /api/notifications` lists risk-change notifications for the signed-in user.
+- `POST /api/notifications/{id}/send` sends one notification to email/Slack now (`409` when no channel is set up, `429` if repeated within 2 minutes).
 - `POST /api/trips/import` imports a CSV or .ics itinerary (see [Itinerary Import And Travel Policy](#itinerary-import-and-travel-policy)).
+
+## Risk-Change Alerts By Email And Slack
+
+When a recheck moves a saved trip to a different risk level (Low, Medium, High), the alert goes out on every channel that is set up, after the database change commits and on a background thread, so a slow mail server never slows a check. Point changes inside the same level stay in the app. Each channel is off until its environment variables are set, so local runs and tests never send anything.
+
+| Variable | What it does |
+| --- | --- |
+| `RESEND_API_KEY` | Send email through [Resend](https://resend.com)'s HTTPS API. Use this on Render's free plan, which blocks outbound SMTP ports. |
+| `SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD` | Or send through any SMTP server (for example Gmail with an app password) on hosts that allow SMTP. |
+| `TRIP_ALERT_EMAIL_FROM` | Sender address. Defaults to `onboarding@resend.dev` for Resend, or the SMTP username. |
+| `TRIP_ALERT_EMAIL_TO` | Send every alert to this one inbox (a demo or a team list). Without it, alerts go to the email Google sign-in gave for the trip's owner; demo employee accounts have none, so they get no mail. |
+| `TRIP_ALERT_SLACK_WEBHOOK_URL` | Post alerts to a Slack channel through an incoming webhook. |
+| `TRIP_RECHECK_INTERVAL` | Recheck every upcoming saved trip on a timer, for example `6h`. Blank turns it off. |
+| `APP_BASE_URL` | Link used in alerts. Defaults to Render's `RENDER_EXTERNAL_URL`. |
+
+In the app, each notification has a **Send to email** button (shown only when a channel is set up) that sends that alert out on demand. The read-only demo admin can't use it.
 
 ## Deploy To Render
 

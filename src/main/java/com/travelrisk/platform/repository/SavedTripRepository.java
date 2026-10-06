@@ -18,6 +18,9 @@ public interface SavedTripRepository extends JpaRepository<SavedTrip, Long> {
   @Query("select count(distinct trip.username) from SavedTrip trip")
   long countDistinctUsers();
 
+  @Query("select distinct trip.username from SavedTrip trip where trip.travelDate >= :today")
+  List<String> findUsernamesWithTripsFrom(java.time.LocalDate today);
+
   Optional<SavedTrip> findByIdAndUsername(Long id, String username);
 
   Optional<SavedTrip> findByUsernameAndOriginAndDestinationAndTravelDateAndModeAndOriginAirportAndDestinationAirport(

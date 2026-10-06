@@ -2,6 +2,7 @@ package com.travelrisk.platform.service;
 
 import com.travelrisk.platform.web.ResourceNotFoundException;
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.travelrisk.platform.alerts.TripAlertService;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.travelrisk.platform.database.entities.SavedTrip;
@@ -23,6 +24,7 @@ public class SavedTripService {
   private final TripNotificationService notificationService;
   private final TravelRiskService travelRiskService;
   private final TravelPolicyService policyService;
+  private final TripAlertService tripAlerts;
   private final ObjectMapper objectMapper;
 
   public SavedTripService(
@@ -31,12 +33,14 @@ public class SavedTripService {
       TripNotificationService notificationService,
       TravelRiskService travelRiskService,
       TravelPolicyService policyService,
+      TripAlertService tripAlerts,
       ObjectMapper objectMapper) {
     this.repository = repository;
     this.notificationRepository = notificationRepository;
     this.notificationService = notificationService;
     this.travelRiskService = travelRiskService;
     this.policyService = policyService;
+    this.tripAlerts = tripAlerts;
     this.objectMapper = objectMapper;
   }
 
@@ -82,13 +86,20 @@ public class SavedTripService {
     java.util.ArrayList<TripNotificationService.TripNotificationResponse> notifications = new java.util.ArrayList<>();
 
     for (SavedTrip trip : trips) {
-      TravelRiskService.Assessment assessment = travelRiskService.analyze(
-          trip.getOrigin(),
-          trip.getDestination(),
-          trip.getTravelDate().toString(),
-          trip.getMode(),
-          trip.getOriginAirport(),
-          trip.getDestinationAirport());
+      TravelRiskService.Assessment assessment;
+      try {
+        assessment = travelRiskService.analyze(
+            trip.getOrigin(),
+            trip.getDestination(),
+            trip.getTravelDate().toString(),
+            trip.getMode(),
+            trip.getOriginAirport(),
+            trip.getDestinationAirport());
+      } catch (IllegalArgumentException outsideForecastWindow) {
+        // A trip that already happened (or is past the forecast window) can't be re-checked; skip it
+        // instead of failing the whole check.
+        continue;
+      }
       if (!riskChanged(trip, assessment)) {
         continue;
       }
@@ -97,6 +108,7 @@ public class SavedTripService {
       notifications.add(notificationService.toResponse(notification));
       trip.updateFrom(assessment, writeAssessment(assessment));
       repository.save(trip);
+      tripAlerts.onRiskChange(notification, trip);
       changedCount++;
     }
 
