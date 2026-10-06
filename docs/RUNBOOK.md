@@ -92,6 +92,10 @@ history, and one unread "risk went from Medium to High" alert for `employee1@ema
 - On every start the seeder removes only the rows it created earlier and reloads them. Trips employees saved themselves, and
   demo trips someone re-checked with live data, are kept.
 - It is off by default and never runs in tests unless a test turns it on.
+- It also turns on a **read-only demo admin** (`DEMO_ADMIN_USERNAME`, default `demo-admin@email.com`, password
+  `DEMO_ADMIN_PASSWORD`, default `travel-risk-demo`), shown on the login page so evaluators never need the real admin login.
+  It sees the admin dashboard for demo employee accounts only (never Google sign-ins), cannot clear history, and gets `403`
+  from every other `/api/admin/**` endpoint. The account does not exist when demo data is off.
 - To clear demo data from production, set `DEMO_DATA_ENABLED=false`, redeploy, and use the admin dashboard's **Clear history** button,
   or delete the employees' saved trips from the app.
 
@@ -138,4 +142,5 @@ Demo and limits:
 | Variable | Default | Purpose |
 | --- | --- | --- |
 | `DEMO_DATA_ENABLED` | `false` | Load demo data on startup (see above). |
+| `DEMO_ADMIN_USERNAME`, `DEMO_ADMIN_PASSWORD` | `demo-admin@email.com`, `travel-risk-demo` | Read-only demo admin, active only with demo data. Shown on the login page. |
 | `RATE_LIMIT_ENABLED` and `RATE_LIMIT_*` | on, 30 checks and 10 token requests per minute | Per-user rate limits. See the README. |

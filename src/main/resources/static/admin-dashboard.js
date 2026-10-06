@@ -42,6 +42,7 @@ async function loadAdminDashboard() {
     const data = await readJsonResponse(response, "Unable to load admin dashboard");
     if (!response.ok) throw new Error(data.error || "Unable to load admin dashboard");
     if (dashboard) dashboard.classList.remove("hidden");
+    applyReadOnlyMode(Boolean(data.readOnly));
     renderAdminDashboard(data);
   } catch (error) {
     table.innerHTML = `<tr><td colspan="6">${error.message}</td></tr>`;
@@ -60,6 +61,14 @@ async function loadAdminDashboard() {
       button.textContent = "Refresh dashboard";
     }
   }
+}
+
+// The public demo admin sees demo accounts only and cannot clear history.
+function applyReadOnlyMode(readOnly) {
+  const clearButton = document.querySelector("#clear-assessment-history");
+  if (clearButton) clearButton.classList.toggle("hidden", readOnly);
+  const note = document.querySelector("#admin-read-only-note");
+  if (note) note.classList.toggle("hidden", !readOnly);
 }
 
 function hideAdminDashboard() {
