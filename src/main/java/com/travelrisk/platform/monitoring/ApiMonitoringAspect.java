@@ -29,6 +29,10 @@ public class ApiMonitoringAspect {
       Map.entry("AuthController.token", "API sign-in"),
       Map.entry("DemoAccountsController.demoAccounts", "Demo login details"),
       Map.entry("SourceHealthController.sourceHealth", "Data source health"));
+      Map.entry("TravelPolicyController.policy", "Load travel policy"),
+      Map.entry("TravelPolicyController.evaluate", "Check trip against policy"),
+      Map.entry("ItineraryImportController.importItinerary", "Import itinerary"),
+      Map.entry("ItineraryImportController.sample", "Download itinerary sample"));
 
   private final ApiMonitoringService monitoringService;
   private final long slowCallThresholdMs;

@@ -42,49 +42,11 @@
       <strong data-stat="historyRecords">0</strong>
       <small data-stat-note="historyRecords">&nbsp;</small>
     </article>
-
     <button type="button" class="admin-stat-link" id="admin-slow-calls-tile">
       <span>Slow or failed calls</span>
       <strong data-stat="slowOrFailed">0</strong>
       <small data-stat-note="slowOrFailed">&nbsp;</small>
     </button>
-
-    <article>
-      <span>Unread alerts</span>
-      <strong>0</strong>
-    </article>
-    <article>
-      <span>History records</span>
-      <strong>0</strong>
-    </article>
-    <article>
-      <span>API failures</span>
-      <strong id="api-failures">0</strong>
-    </article>
-    <article>
-      <span>Slow calls</span>
-      <strong id="slow-api-calls">0</strong>
-    </article>
-  </div>
-  <div class="admin-table-shell">
-    <table class="admin-table">
-      <thead>
-      <tr>
-        <th>Employee</th>
-        <th>Trip</th>
-        <th>Date</th>
-        <th>Type</th>
-        <th>Risk</th>
-        <th>Policy</th>
-        <th>Updated</th>
-      </tr>
-      </thead>
-      <tbody id="admin-trips">
-      <tr>
-        <td colspan="7">Loading admin dashboard...</td>
-      </tr>
-      </tbody>
-    </table>
   </div>
   <details class="admin-section" data-section="saved-trips" open>
     <summary>
@@ -100,12 +62,13 @@
           <th>Date</th>
           <th>Type</th>
           <th>Risk</th>
+          <th>Policy</th>
           <th>Updated</th>
         </tr>
         </thead>
         <tbody id="admin-trips">
         <tr>
-          <td colspan="6">Loading admin dashboard...</td>
+          <td colspan="7">Loading admin dashboard...</td>
         </tr>
         </tbody>
       </table>
@@ -513,15 +476,10 @@
 <script src="/app-state.js?v=split-frontend"></script>
 <script src="/api.js?v=split-frontend"></script>
 <script src="/form-controls.js?v=split-frontend"></script>
-
-<script src="/trip-actions.js?v=split-frontend"></script>
-<script src="/admin-dashboard.js?v=admin-cleanup"></script>
-<script src="/results-rendering.js?v=split-frontend"></script>
-<script src="/trip-actions.js?v=itinerary-policy"></script>
-<script src="/travel-policy.js?v=itinerary-policy"></script>
-<script src="/admin-dashboard.js?v=itinerary-policy"></script>
-<script src="/results-rendering.js?v=itinerary-policy"></script>
-<script src="/app.js?v=itinerary-policy"></script>
-
+<script src="/trip-actions.js?v=admin-policy"></script>
+<script src="/travel-policy.js?v=admin-policy"></script>
+<script src="/admin-dashboard.js?v=admin-policy"></script>
+<script src="/results-rendering.js?v=admin-policy"></script>
+<script src="/app.js?v=admin-policy"></script>
 </body>
 </html>

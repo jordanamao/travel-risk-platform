@@ -2,7 +2,7 @@
 
 **Know which trips are at risk before they're disrupted, and why.** Travel Risk Platform gives a company's travel or operations team one score per trip, built from live weather, official alerts, airport delays and road closures, with the evidence attached. It saves trips and flags them when the risk changes, so the team can move a trip the day before instead of rescuing a stranded employee the day of.
 
-**Code:** [github.com/jordanamao/travel-risk-platform](https://github.com/jordanamao/travel-risk-platform) · **Live app:** [travel-risk-platform.onrender.com](https://travel-risk-platform.onrender.com) (employee and read-only admin demo logins [below](#production-application)) · **Demo script:** [docs/DEMO_SCRIPT.md](docs/DEMO_SCRIPT.md)
+**Code:** [github.com/jordanamao/travel-risk-platform](https://github.com/jordanamao/travel-risk-platform) · **Live app:** [travel-risk-platform.onrender.com](https://travel-risk-platform.onrender.com) (demo login [below](#production-application)) · **Demo script:** [docs/DEMO_SCRIPT.md](docs/DEMO_SCRIPT.md)
 
 ## Case Study
 
@@ -32,8 +32,10 @@ The information to prevent most of this is public, but it's spread across half a
 
 - **One risk score per trip, with the receipts.** A route and date go in; out comes Low / Medium / High, a points total, a confidence level, a plain-English summary and recommendation, and every signal and source that produced it. Operators can see *why*, not just a color.
 - **Eight live checks in parallel.** Forecasts at the origin, destination and route midpoint (Open-Meteo), NWS alerts at both ends, METAR airport weather, FAA NAS ground stops and delay programs, and Road511 closures.
+- **Plugs into the customer's own data.** Upload the booking export or calendar the company already has (CSV or .ics) and every trip is risk-checked and saved, with a per-row result so one bad row never blocks the rest.
+- **The customer's travel policy, as config.** A YAML rules file decides whether each trip is *Allowed*, needs a *Heads-up*, *Needs approval* or is *Blocked* (for example "High risk trips need manager approval"), so each company sets its own rules without a code change.
 - **Saved trips and alerts.** Employees save trips; a recheck compares the new score with the saved one and creates a notification when the risk level moves.
-- **An admin dashboard** with every employee's trips, high-risk counts, recent assessments, and API monitoring (call counts, failures, slow calls).
+- **An admin dashboard** with every employee's trips and their policy result, high-risk counts, recent assessments, and API monitoring (call counts, failures, slow calls).
 - **Production basics:** Google OAuth plus JWT for API clients, role-based access (employees only see their own data, `/api/admin/**` is admin-only), Postgres with Flyway migrations, caching, per-user rate limiting, a consistent `{"error": "..."}` error contract, health checks, CI on every push, and auto-deploy to Render from `main`.
 
 ### Architecture
@@ -58,6 +60,8 @@ flowchart LR
     SCORE --> SUM[Summary + recommendation<br/>local or OpenAI]
     C --> DB[(Postgres<br/>saved_trips, trip_notifications,<br/>assessment_history)]
     MON[API monitoring aspect] -.-> TRS
+    IMP[Itinerary import<br/>CSV or .ics] --> C
+    C --> POL[Travel policy<br/>YAML rules]
     C --> ADMIN[Admin dashboard]
 ```
 
@@ -72,6 +76,7 @@ flowchart LR
 | Fan out all sources in parallel, and degrade per source | One slow or down API shouldn't block or fail the whole check; a failed source shows as "could not be reached" | The score can be lower than reality when a source is down, so source status is shown on every result |
 | Cache assessments per route and date | External APIs are slow and rate limited; repeat checks are instant | Results can be up to the cache TTL old; there's an explicit refresh endpoint |
 | In-memory rate limits and monitoring counters | No extra infrastructure for a single instance | Reset on restart and aren't shared across instances; Redis is the next step |
+| Travel policy as a YAML file, checked at startup | Each customer gets their own rules without a code change; a typo stops the app from starting instead of silently skipping a rule | A policy change needs a restart; there's no in-app policy editor yet |
 | Local summary fallback, OpenAI optional | The app works with no AI key and no AI cost | Fallback summaries are template-based |
 
 ### A real bug: one road closure feed made a flight "High risk"
@@ -94,15 +99,15 @@ While testing the live site, a **New York to San Francisco flight scored High (6
 - **8** live checks per assessment, run in parallel, with per-source status shown on every result.
 - **3-level** risk score with points, confidence, evidence and a recommendation.
 - **60 → 0 points** on the NY to SF flight after the road-closure fix (High → Low), with the driving case still correctly flagged Medium.
-- **31** automated tests run in CI on every push and pull request; `main` requires Maven tests and a Docker build to pass before merge.
+- **52** automated tests run in CI on every push and pull request; `main` requires Maven tests and a Docker build to pass before merge.
 - Deployed on Render with managed Postgres and three Flyway-managed tables, auto-deployed from `main`.
 
 ### Rolling it out at a company
 
 1. **Sign in with your company accounts.** Google sign-in works out of the box; admins are set by configuration, and employees only ever see their own trips.
-2. **Bring in the trips you already book.** Employees save trips today; importing booked itineraries from the travel booking system (a CSV or calendar export) so every trip is covered without retyping is the next integration.
-3. **Set your own policy.** Company rules such as "High risk trips need manager approval" and per-company risk thresholds belong in configuration, not code, so each customer can tune them.
-4. **Run the travel desk from the admin dashboard.** Upcoming trips across the company, high-risk counts, unread alerts and data-source health in one place.
+2. **Bring in the trips you already book.** Upload the travel agency's CSV export or a calendar file. Common column-name and date variations are accepted, because every customer's export is a little different. Admins can import for the whole company.
+3. **Set your own policy.** Point `TRAVEL_POLICY_LOCATION` at the company's rules file. [`samples/acme-travel-policy.yml`](samples/acme-travel-policy.yml) is a stricter example: approval for anything above Low risk and no driving into an active weather alert.
+4. **Run the travel desk from the admin dashboard.** Upcoming trips across the company with their policy result, high-risk counts, unread alerts and data-source health in one place.
 5. **Grow from there:** airline-specific operations and a booked flight's live status, and pushing alerts to the channels the team already uses.
 
 ## Production Application
@@ -110,8 +115,7 @@ While testing the live site, a **New York to San Francisco flight scored High (6
 - Live app: [https://travel-risk-platform.onrender.com](https://travel-risk-platform.onrender.com)
 - Login page: [https://travel-risk-platform.onrender.com/login](https://travel-risk-platform.onrender.com/login)
 - Employee demo logins: any `employee` plus a number at `email.com`, such as `employee1@email.com`, `employee5@email.com`, or `employee100@email.com` / `travel-risk-demo` (or click **Use demo account** on the login page)
-- Demo admin (read-only, sample data): TODO: login added with the demo-data PR. Try the operations manager's dashboard yourself without touching real data.
-- Real admin login: set `TRAVEL_RISK_ADMIN_USERNAME` and `TRAVEL_RISK_ADMIN_PASSWORD` (never shared)
+- Admin login: set `TRAVEL_RISK_ADMIN_USERNAME` and `TRAVEL_RISK_ADMIN_PASSWORD` (never shared)
 
 The production deployment runs on Render with a managed Render Postgres database. Saved trips are persisted in the `saved_trips` table, and risk-change notifications are persisted in the `trip_notifications` table.
 
@@ -164,7 +168,7 @@ cd travel-risk-platform
 mvn test
 ```
 
-Expected result: `Tests run: 31, Failures: 0, Errors: 0` and `BUILD SUCCESS` (verified on a fresh clone of `main` on 2026-10-06).
+Expected result: `Tests run: 52, Failures: 0, Errors: 0` and `BUILD SUCCESS` (verified on a fresh clone of `main` on 2026-10-06).
 
 **Health check:** `GET /health` returns `{"status":"UP"}`; Render uses it to decide when a new deploy is live.
 
