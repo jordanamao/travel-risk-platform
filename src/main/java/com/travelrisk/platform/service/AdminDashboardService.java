@@ -12,8 +12,13 @@ import com.travelrisk.platform.repository.AssessmentHistoryRepository;
 import com.travelrisk.platform.repository.SavedTripRepository;
 import com.travelrisk.platform.repository.TripNotificationRepository;
 import java.time.Instant;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+
+import java.util.Set;
+import java.util.function.Predicate;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -71,7 +76,44 @@ public class AdminDashboardService {
         stats,
         trips.stream().map(trip -> toResponse(trip, profiles)).toList(),
         history.stream().map(record -> toResponse(record, profiles)).toList(),
-        monitoring);
+        monitoring,
+        false);
+  }
+
+  /** Read-only view for the public demo admin: only trips and history of the given demo users. */
+  @Transactional(readOnly = true)
+  public AdminDashboardResponse getDemoDashboard(Predicate<String> isDemoUser) {
+    List<SavedTrip> trips = savedTripRepository.findAllByOrderByTravelDateAscUpdatedAtDesc().stream()
+        .filter(trip -> isDemoUser.test(trip.getUsername()))
+        .toList();
+    List<AssessmentHistory> history = historyRepository.findAll().stream()
+        .filter(item -> isDemoUser.test(item.getUsername()))
+        .sorted(Comparator.comparing(AssessmentHistory::getCreatedAt).reversed())
+        .toList();
+    Set<Long> tripIds = trips.stream().map(SavedTrip::getId).collect(Collectors.toSet());
+    long unread = notificationRepository.findAll().stream()
+        .filter(alert -> alert.getReadAt() == null && tripIds.contains(alert.getSavedTripId()))
+        .count();
+    AdminStats stats = new AdminStats(
+        trips.size(),
+        trips.stream().map(SavedTrip::getUsername).distinct().count(),
+        trips.stream().filter(trip -> "High".equalsIgnoreCase(trip.getRiskLevel())).count(),
+        unread,
+        history.size(),
+        history.stream()
+            .filter(item -> "High".equalsIgnoreCase(item.getRiskLevel()) && !item.getCreatedAt().isBefore(SCORING_FIX_AT))
+            .count());
+    List<AssessmentHistory> recent = history.stream().limit(50).toList();
+    Map<String, UserProfile> profiles = userProfileService.findAll(
+        Stream.concat(trips.stream().map(SavedTrip::getUsername), recent.stream().map(AssessmentHistory::getUsername))
+            .distinct()
+            .toList());
+    return new AdminDashboardResponse(
+        stats,
+        trips.stream().map(trip -> toResponse(trip, profiles)).toList(),
+        recent.stream().map(record -> toResponse(record, profiles)).toList(),
+        monitoringService.snapshot(),
+        true);
   }
 
   @Transactional
@@ -142,7 +184,8 @@ public class AdminDashboardService {
       AdminStats stats,
       List<AdminTripResponse> trips,
       List<AssessmentHistoryResponse> history,
-      ApiMonitoringService.MonitoringSnapshot monitoring) {}
+      ApiMonitoringService.MonitoringSnapshot monitoring,
+      boolean readOnly) {}
 
   public record AdminStats(
       long savedTrips,

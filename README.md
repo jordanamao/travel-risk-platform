@@ -172,6 +172,8 @@ Expected result: `Tests run: 52, Failures: 0, Errors: 0` and `BUILD SUCCESS` (ve
 
 **Health check:** `GET /health` returns `{"status":"UP"}`; Render uses it to decide when a new deploy is live.
 
+**Operations:** [docs/RUNBOOK.md](docs/RUNBOOK.md) covers alerts, what happens when each data source is down, redeploy and rollback on Render, demo data, and every environment variable.
+
 ## Optional AI Summary
 
 The platform works without an OpenAI key by using a local summary fallback. To enable OpenAI-generated summaries:

@@ -102,6 +102,18 @@ class InternalApiIntegrationTest {
     assertThat(operations).noneMatch(operation -> operation.contains("Controller") || operation.contains("Service"));
   }
 
+  @Test
+  void demoAdminLoginDoesNotExistWithoutDemoData() {
+    JsonNode demoAccounts = restTemplate.getForObject(url("/api/auth/demo-accounts"), JsonNode.class);
+    assertThat(demoAccounts.has("demoAdmin")).isFalse();
+
+    HttpHeaders headers = new HttpHeaders();
+    headers.setContentType(MediaType.APPLICATION_JSON);
+    ResponseEntity<String> token = restTemplate.postForEntity(url("/api/auth/token"),
+        new HttpEntity<>(new LoginRequest("demo-admin@email.com", "travel-risk-demo"), headers), String.class);
+    assertThat(token.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+  }
+
   private HttpHeaders authHeaders(String username, String password) {
     HttpHeaders headers = new HttpHeaders();
     headers.setContentType(MediaType.APPLICATION_JSON);

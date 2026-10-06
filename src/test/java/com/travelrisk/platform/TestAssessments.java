@@ -22,6 +22,7 @@ public final class TestAssessments {
         Map.of("used", false),
         List.of(new TravelRiskService.Signal("aviation-weather", riskLevel.toLowerCase(), "Airport weather", "METAR")),
         List.of(),
+        List.of(),
         List.of());
   }
 }

@@ -66,6 +66,20 @@
       </dl>
       <p class="login-demo-hint">Any employee number works. Admin uses the configured account.</p>
     </section>
+
+    <section class="login-demo-note hidden" aria-labelledby="demo-admin-heading" data-demo-admin>
+      <div class="login-demo-header">
+        <h3 id="demo-admin-heading">Demo admin (read-only)</h3>
+        <button type="button" class="login-demo-fill" data-demo-admin-fill>Use demo admin</button>
+      </div>
+      <dl class="login-demo-creds">
+        <dt>Email</dt>
+        <dd data-demo-admin-username></dd>
+        <dt>Password</dt>
+        <dd data-demo-admin-password></dd>
+      </dl>
+      <p class="login-demo-hint">Opens the admin dashboard for demo accounts only. It can't change or delete anything.</p>
+    </section>
   </section>
 </main>
 <script>
@@ -74,12 +88,30 @@
     item.hidden = !params.has(item.dataset.visibleParam);
   });
 
-  document.querySelector("[data-demo-fill]").addEventListener("click", () => {
+  function fillLogin(usernameSelector, passwordSelector) {
     const form = document.querySelector(".login-form");
-    form.username.value = document.querySelector("[data-demo-username]").textContent.trim();
-    form.password.value = document.querySelector("[data-demo-password]").textContent.trim();
+    form.username.value = document.querySelector(usernameSelector).textContent.trim();
+    form.password.value = document.querySelector(passwordSelector).textContent.trim();
     form.querySelector("button[type=submit]").focus();
+  }
+
+  document.querySelector("[data-demo-fill]").addEventListener("click", () => {
+    fillLogin("[data-demo-username]", "[data-demo-password]");
   });
+
+  document.querySelector("[data-demo-admin-fill]").addEventListener("click", () => {
+    fillLogin("[data-demo-admin-username]", "[data-demo-admin-password]");
+  });
+
+  fetch("/api/auth/demo-accounts")
+      .then((response) => (response.ok ? response.json() : {}))
+      .then(({ demoAdmin }) => {
+        if (!demoAdmin) return;
+        document.querySelector("[data-demo-admin-username]").textContent = demoAdmin.username;
+        document.querySelector("[data-demo-admin-password]").textContent = demoAdmin.password;
+        document.querySelector("[data-demo-admin]").classList.remove("hidden");
+      })
+      .catch(() => {});
 </script>
 </body>
 </html>

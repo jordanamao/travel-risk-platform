@@ -9,4 +9,6 @@ public interface AssessmentHistoryRepository extends JpaRepository<AssessmentHis
   List<AssessmentHistory> findTop50ByOrderByCreatedAtDesc();
 
   long countByRiskLevelIgnoreCaseAndCreatedAtGreaterThanEqual(String riskLevel, Instant createdAt);
+
+  List<AssessmentHistory> findByAssessmentJsonContaining(String text);
 }

@@ -27,6 +27,8 @@ public class ApiMonitoringAspect {
       Map.entry("AdminDashboardController.dashboard", "Admin dashboard"),
       Map.entry("AdminDashboardController.clearAssessmentHistory", "Clear assessment history"),
       Map.entry("AuthController.token", "API sign-in"),
+      Map.entry("DemoAccountsController.demoAccounts", "Demo login details"),
+      Map.entry("SourceHealthController.sourceHealth", "Data source health"));
       Map.entry("TravelPolicyController.policy", "Load travel policy"),
       Map.entry("TravelPolicyController.evaluate", "Check trip against policy"),
       Map.entry("ItineraryImportController.importItinerary", "Import itinerary"),
