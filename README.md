@@ -2,7 +2,7 @@
 
 **Know which trips are at risk before they're disrupted, and why.** Travel Risk Platform gives a company's travel or operations team one score per trip, built from live weather, official alerts, airport delays and road closures, with the evidence attached. It saves trips and flags them when the risk changes, so the team can move a trip the day before instead of rescuing a stranded employee the day of.
 
-**Live app:** [travel-risk-platform.onrender.com](https://travel-risk-platform.onrender.com) (employee and read-only admin demo logins [below](#production-application)) · **Demo script:** [docs/DEMO_SCRIPT.md](docs/DEMO_SCRIPT.md)
+**Code:** [github.com/jordanamao/travel-risk-platform](https://github.com/jordanamao/travel-risk-platform) · **Live app:** [travel-risk-platform.onrender.com](https://travel-risk-platform.onrender.com) (employee and read-only admin demo logins [below](#production-application)) · **Demo script:** [docs/DEMO_SCRIPT.md](docs/DEMO_SCRIPT.md)
 
 ## Case Study
 
@@ -137,10 +137,28 @@ mvn spring-boot:run
 
 Then open `http://localhost:8080`.
 
-## Health Check And CI
+## Deploy And Test
 
-- Health check: `GET /health` returns `{"status":"UP"}` and is used by Render.
-- CI: GitHub Actions runs `mvn test` on every branch push and pull request.
+**Production branch: `main`.** Render auto-deploys every merge to `main` to [travel-risk-platform.onrender.com](https://travel-risk-platform.onrender.com). Nothing else deploys. `develop` and feature branches never reach production.
+
+**`main` is protected.** A pull request can only merge when both required checks pass:
+
+- **Maven Tests:** `mvn test` on Java 21 (all unit and integration tests).
+- **Docker Build:** `docker build`, the same image Render runs.
+
+GitHub Actions runs both on every push and pull request ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)).
+
+**Run the tests from a fresh checkout.** You need Java 21 and Maven 3.9+. No database, API keys, Google credentials or `.env` file are needed: tests use an in-memory database and a placeholder Google client id.
+
+```bash
+git clone https://github.com/jordanamao/travel-risk-platform.git
+cd travel-risk-platform
+mvn test
+```
+
+Expected result: `Tests run: 31, Failures: 0, Errors: 0` and `BUILD SUCCESS` (verified on a fresh clone of `main` on 2026-10-06).
+
+**Health check:** `GET /health` returns `{"status":"UP"}`; Render uses it to decide when a new deploy is live.
 
 ## Optional AI Summary
 
