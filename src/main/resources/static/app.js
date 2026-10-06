@@ -3,7 +3,10 @@ setupAirportPreferences();
 setupRouteSwapToggle();
 setupResultActions();
 setupSavedTrips();
+setupItineraryImport();
+setupTravelPolicy();
 setupAdminDashboard();
+setState("empty");
 
 form.addEventListener("submit", async (event) => {
   event.preventDefault();

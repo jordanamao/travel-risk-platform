@@ -8,6 +8,7 @@ import static org.mockito.Mockito.when;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.travelrisk.platform.TestAssessments;
+import com.travelrisk.platform.TestPolicies;
 import com.travelrisk.platform.database.entities.SavedTrip;
 import com.travelrisk.platform.repository.SavedTripRepository;
 import com.travelrisk.platform.repository.TripNotificationRepository;
@@ -39,7 +40,8 @@ class SavedTripServiceTest {
 
   @BeforeEach
   void setUp() {
-    service = new SavedTripService(repository, notificationRepository, notificationService, travelRiskService, objectMapper);
+    service = new SavedTripService(repository, notificationRepository, notificationService, travelRiskService,
+        TestPolicies.defaultPolicy(), objectMapper);
   }
 
   @Test

@@ -26,6 +26,10 @@ services:
         sync: false
       - key: OPENAI_MODEL
         value: gpt-6-astra
+      - key: DEMO_DATA_ENABLED
+        value: "true"
+      - key: ALERT_WEBHOOK_URL
+        sync: false
 
 databases:
   - name: travel-risk-platform-db

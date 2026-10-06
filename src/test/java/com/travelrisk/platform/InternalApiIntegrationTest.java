@@ -7,6 +7,8 @@ import static org.mockito.Mockito.when;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.travelrisk.platform.service.TravelRiskService;
+import java.util.ArrayList;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -94,6 +96,22 @@ class InternalApiIntegrationTest {
     assertThat(dashboard.getStatusCode()).isEqualTo(HttpStatus.OK);
     assertThat(dashboard.getBody().at("/stats/savedTrips").asLong()).isEqualTo(1);
     assertThat(dashboard.getBody().at("/stats/historyRecords").asLong()).isEqualTo(1);
+    List<String> operations = new ArrayList<>();
+    dashboard.getBody().at("/monitoring/metrics").forEach(metric -> operations.add(metric.get("operation").asText()));
+    assertThat(operations).contains("Risk check", "Load saved trips", "Save trip");
+    assertThat(operations).noneMatch(operation -> operation.contains("Controller") || operation.contains("Service"));
+  }
+
+  @Test
+  void demoAdminLoginDoesNotExistWithoutDemoData() {
+    JsonNode demoAccounts = restTemplate.getForObject(url("/api/auth/demo-accounts"), JsonNode.class);
+    assertThat(demoAccounts.has("demoAdmin")).isFalse();
+
+    HttpHeaders headers = new HttpHeaders();
+    headers.setContentType(MediaType.APPLICATION_JSON);
+    ResponseEntity<String> token = restTemplate.postForEntity(url("/api/auth/token"),
+        new HttpEntity<>(new LoginRequest("demo-admin@email.com", "travel-risk-demo"), headers), String.class);
+    assertThat(token.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
   }
 
   private HttpHeaders authHeaders(String username, String password) {

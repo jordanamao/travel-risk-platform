@@ -1,0 +1,32 @@
+# Example customer policy: a stricter company that wants approval for anything above Low risk
+# and no driving trips at all when official weather alerts are active.
+#
+# Try it locally:
+#   TRAVEL_POLICY_LOCATION=file:samples/acme-travel-policy.yml mvn spring-boot:run
+
+company: Acme Logistics
+updated: 2026-10-06
+
+rules:
+  - id: no-driving-into-alerts
+    name: Driving into an official alert
+    action: block
+    when:
+      modes: [drive]
+      signalTypes: [official-alert]
+    message: Acme doesn't allow driving trips through an active NWS alert. Fly or reschedule.
+
+  - id: medium-or-high-approval
+    name: Medium or high risk trip
+    action: require_approval
+    when:
+      minRiskLevel: Medium
+    message: Your manager must approve trips at Medium risk or above.
+
+  - id: airport-disruption
+    name: Airport delays or closures
+    action: warn
+    when:
+      modes: [flight]
+      signalTypes: [faa-airport-status]
+    message: Book a refundable fare. The FAA reports delays at an airport on this route.

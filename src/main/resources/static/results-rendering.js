@@ -1,4 +1,5 @@
 function setState(state) {
+  placeTripsPanel(state === "empty");
   emptyState.classList.toggle("hidden", state !== "empty");
   loading.classList.toggle("hidden", state !== "loading");
   results.classList.toggle("hidden", state !== "results");
@@ -10,11 +11,9 @@ function renderResults(data) {
   document.querySelector("#risk-route").textContent =
       `${data.input.origin} to ${data.input.destination}`;
   document.querySelector("#risk-trip-type").textContent =
-      `${data.input.date} · ${tripTypeLabel(data.input.mode)}`;
+      `${friendlyDate(data.input.date)} · ${tripTypeLabel(data.input.mode)}`;
   document.querySelector("#risk-summary").textContent = data.summary;
   document.querySelector("#recommendation").textContent = data.recommendation;
-  document.querySelector("#uncertainty").textContent =
-      `${data.uncertainty} ${summaryModeText(data.ai)}`;
 
   const header = document.querySelector(".risk-header");
   header.className = `risk-header ${level}`;
@@ -30,7 +29,7 @@ function renderResults(data) {
 
   renderTopDrivers(data.signals);
   renderFreshness(data);
-  updateRadarMap(data.input.destination);
+  updateRadarMap(data.route);
   renderGlance(data);
   renderImpactSplit(data);
   renderScoreBreakdown(data.signals);
@@ -38,9 +37,25 @@ function renderResults(data) {
   renderWhySummary(data);
   renderSignals(data.signals);
 
-  renderSources(data.sources);
+  renderSources(data);
 
-  renderEvidence(data.evidence);
+  renderEvidence(data);
+  renderPolicyResult(data);
+}
+
+// The trips card fills the empty right column before a result exists, then returns under the form.
+function placeTripsPanel(showInEmptyState) {
+  const panel = document.querySelector(".saved-trips-panel");
+  const slot = showInEmptyState
+      ? document.querySelector("#empty-trips-slot")
+      : document.querySelector(".input-panel .panel-content");
+  if (panel && slot && panel.parentElement !== slot) slot.appendChild(panel);
+}
+
+function friendlyDate(value) {
+  const date = new Date(`${value}T00:00:00`);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" });
 }
 
 function decisionForLevel(level) {
@@ -57,24 +72,22 @@ function renderTopDrivers(signals) {
       .slice(0, 3);
 
   container.innerHTML = "";
-  if (!topSignals.length) {
-    container.textContent = "No major risk drivers were detected.";
-    return;
-  }
+  // The summary sentence already says when nothing drives the risk.
+  if (!topSignals.length) return;
 
   const label = document.createElement("span");
   label.textContent = "Main drivers";
   container.appendChild(label);
 
-  for (const signal of topSignals) {
+  for (const text of [...new Set(topSignals.map(shortSignalLabel))]) {
     const pill = document.createElement("strong");
-    pill.textContent = shortSignalLabel(signal);
+    pill.textContent = text;
     container.appendChild(pill);
   }
 }
 
 function renderFreshness(data) {
-  const sourceCount = new Set(data.evidence.map((item) => item.source)).size;
+  const sourceCount = data.sources.length;
   const checkedAt = new Date().toLocaleString([], {
     month: "short",
     day: "numeric",
@@ -128,6 +141,7 @@ async function runDateComparison({ automatic }) {
 function renderScenarioResults(results) {
   const container = document.querySelector("#scenario-results");
   container.innerHTML = "";
+  const usesRoadData = results.some((item) => item.signals.some((signal) => signal.type === "road-closure"));
 
   for (const item of results) {
     const row = document.createElement("article");
@@ -140,13 +154,20 @@ function renderScenarioResults(results) {
       </div>
       <p></p>
     `;
-    row.querySelector("strong").textContent = item.input.date;
+    row.querySelector("strong").textContent = friendlyDate(item.input.date);
     row.querySelector("span").textContent =
         `${decisionForLevel(item.score.level)} · ${item.score.points} pts · ${item.score.level}`;
-    row.querySelector("p").textContent = item.signals.length
-        ? item.signals.slice(0, 2).map(shortSignalLabel).join(", ")
+    const drivers = [...new Set(item.signals.map(shortSignalLabel))];
+    row.querySelector("p").textContent = drivers.length
+        ? drivers.slice(0, 2).join(", ")
         : "No major scored signals";
     container.appendChild(row);
+  }
+  if (usesRoadData) {
+    const note = document.createElement("p");
+    note.className = "field-note";
+    note.textContent = "Road closures reflect current conditions, so they count the same on every date.";
+    container.appendChild(note);
   }
 }
 
@@ -160,7 +181,7 @@ function buildReportText(data) {
   return [
     `Travel disruption risk assessment`,
     `${data.input.origin} to ${data.input.destination}`,
-    `Date: ${data.input.date}`,
+    `Date: ${friendlyDate(data.input.date)}`,
     `Decision: ${decisionForLevel(data.score.level)}`,
     `Risk: ${data.score.level} (${data.score.points} points)`,
     ``,
@@ -171,7 +192,7 @@ function buildReportText(data) {
     drivers || "- No major scored drivers",
     ``,
     `Limits:`,
-    `${data.uncertainty} ${summaryModeText(data.ai)}`
+    data.uncertainty
   ].join("\n");
 }
 
@@ -195,13 +216,16 @@ function renderImpactSplit(data) {
     }
   ];
 
+  const roadPoints = scoreCategory(data.signals, (signal) => signal.type === "road-closure");
   container.innerHTML = segments.map((segment) => `
     <article class="impact-card ${segment.level.toLowerCase()}">
       <span>${segment.label}</span>
       <strong>${segment.level}</strong>
       <p>${segment.detail}</p>
     </article>
-  `).join("");
+  `).join("") + (roadPoints
+      ? `<p class="impact-note">These areas reflect weather and airport conditions. Road closures add ${roadPoints} points separately.</p>`
+      : "");
 }
 
 function segmentLevel(data, keyword) {
@@ -238,7 +262,7 @@ function renderScoreBreakdown(signals) {
       points: scoreCategory(signals, (signal) => signal.type === "road-closure")
     }
   ];
-  const total = categories.reduce((sum, item) => sum + item.points, 0) || 1;
+  const total = categories.reduce((sum, item) => sum + item.points, 0);
 
   container.innerHTML = `
     <div class="breakdown-header">
@@ -249,7 +273,7 @@ function renderScoreBreakdown(signals) {
       ${categories.map((item) => `
         <div class="breakdown-row">
           <span>${item.label}</span>
-          <div><i style="width: ${Math.max(4, (item.points / total) * 100)}%"></i></div>
+          <div><i style="width: ${total ? (item.points / total) * 100 : 0}%"></i></div>
           <strong>${item.points}</strong>
         </div>
       `).join("")}
@@ -266,105 +290,124 @@ function scoreCategory(signals, predicate) {
 function renderNextSteps(data) {
   const list = document.querySelector("#next-steps");
   const level = data.score.level;
-  const steps = level === "High"
-      ? [
-        "Check airline and airport delay boards before committing to departure.",
-        "Confirm alternate departure time or routing with the traveler.",
-        "Recheck alerts and airport weather within 6 hours of travel."
-      ]
-      : level === "Medium"
-      ? [
-        "Build extra buffer into the trip plan.",
-        "Recheck weather and airport status before leaving.",
-        "Keep backup ground transportation available."
-      ]
-      : [
-        "Proceed with the current plan.",
-        "Recheck conditions before departure.",
-        "Keep the assessment link or report for reference."
-      ];
+  const types = new Set(data.signals.filter((signal) => (signal.points || 0) > 0).map((signal) => signal.type));
+  const steps = [];
 
-  list.innerHTML = steps.map((step) => `<li>${step}</li>`).join("");
-}
-
-function updateRadarMap(destination) {
-  const iframe = document.querySelector("#radar-iframe");
-  if (!iframe) return;
-
-  let lat = 39.8283;
-  let lon = -98.5795;
-  let zoom = 5;
-
-  const dest = destination.toLowerCase();
-  if (dest.includes("san francisco") || dest.includes("sfo")) {
-    lat = 37.7749; lon = -122.4194; zoom = 7;
-  } else if (dest.includes("new york") || dest.includes("jfk") || dest.includes("lga") || dest.includes("ewr")) {
-    lat = 40.7128; lon = -74.0060; zoom = 7;
-  } else if (dest.includes("chicago") || dest.includes("ord")) {
-    lat = 41.8781; lon = -87.6298; zoom = 7;
-  } else if (dest.includes("los angeles") || dest.includes("lax")) {
-    lat = 34.0522; lon = -118.2437; zoom = 7;
+  if (level === "High") steps.push("Confirm an alternate departure time or route with the traveler.");
+  if (level === "Medium") steps.push("Build extra buffer into the trip plan.");
+  if (types.has("aviation-weather") || types.has("faa-airport-status")) {
+    steps.push("Check airline and airport delay boards before committing to departure.");
   }
+  if (types.has("official-alert")) steps.push("Follow the active weather alert and recheck it before leaving.");
+  if (types.has("road-closure")) steps.push("Check the state 511 map for closures on the planned driving route.");
+  if (types.has("weather") || types.has("wind")) steps.push("Recheck the forecast within 6 hours of travel.");
+  if (level === "Low") {
+    steps.push("Proceed with the current plan.");
+    steps.push("Recheck conditions before departure.");
+  }
+  if (steps.length < 3) steps.push("Download the report for your records.");
 
-  iframe.src = `https://embed.windy.com/embed2.html?lat=${lat}&lon=${lon}&zoom=${zoom}&level=surface&overlay=radar&menu=&message=true&marker=true&calendar=now&pressure=&type=map&location=coordinates&detail=&metricWind=default&metricTemp=default&radarRange=-1`;
+  list.innerHTML = steps.slice(0, 4).map((step) => `<li>${step}</li>`).join("");
 }
 
-function renderSources(sources) {
+// Center the radar on the whole route, zoomed out far enough to show both ends.
+function updateRadarMap(route) {
+  const iframe = document.querySelector("#radar-iframe");
+  if (!iframe || !route) return;
+
+  const { origin, destination } = route;
+  const lat = ((origin.lat + destination.lat) / 2).toFixed(4);
+  const lon = ((origin.lon + destination.lon) / 2).toFixed(4);
+  const span = Math.max(Math.abs(origin.lat - destination.lat), Math.abs(origin.lon - destination.lon));
+  const zoom = span > 20 ? 4 : span > 8 ? 5 : span > 3 ? 6 : 7;
+
+  iframe.src = `https://embed.windy.com/embed2.html?lat=${lat}&lon=${lon}&zoom=${zoom}&level=surface&overlay=radar&menu=&message=true&marker=&calendar=now&pressure=&type=map&location=coordinates&detail=&metricWind=default&metricTemp=default&radarRange=-1`;
+}
+
+function renderSources(data) {
   const container = document.querySelector("#sources");
   container.innerHTML = "";
-  for (const source of sources) {
+  for (const source of data.sources) {
+    const status = sourceStatus(source, data.evidence);
     const item = document.createElement("article");
     item.className = "source-row";
     item.innerHTML = `
       <div>
-        <p class="source-name"></p>
+        <p class="source-name"><span></span><em class="source-status"></em></p>
         <p class="source-purpose"></p>
       </div>
       <a target="_blank" rel="noreferrer"></a>
     `;
-    item.querySelector(".source-name").textContent = source.name;
+    item.querySelector(".source-name span").textContent = sourceDisplayName(source.name);
+    const badge = item.querySelector(".source-status");
+    badge.className = `source-status ${status.tone}`;
+    badge.textContent = status.label;
     item.querySelector(".source-purpose").textContent = source.purpose;
     const link = item.querySelector("a");
     link.href = source.url;
-    link.textContent = "Open source";
+    link.textContent = "Visit site ↗";
     container.appendChild(item);
   }
 }
 
+function sourceDisplayName(name) {
+  return name.replace(/\s+API$/, "");
+}
+
+function sourceStatus(source, evidence) {
+  const items = evidence.filter((item) => item.source === source.name);
+  if (!items.length) {
+    // Geocoding leaves no evidence rows; reaching a result means it located the route.
+    return { tone: "ok", label: "OK" };
+  }
+  const usable = items.filter((item) => item.severity !== "unknown");
+  if (usable.length) {
+    return { tone: "ok", label: `OK · ${usable.length} item${usable.length === 1 ? "" : "s"}` };
+  }
+  if (items.some((item) => /not connected/i.test(item.headline))) {
+    return { tone: "muted", label: "Not connected" };
+  }
+  return { tone: "failed", label: "No response" };
+}
+
 function renderGlance(data) {
-  const alertCount = data.signals.filter((signal) => signal.type === "official-alert").length;
-  const airportIssueCount = data.signals.filter((signal) => signal.type === "aviation-weather").length;
-  const forecastIssueCount = data.signals.filter((signal) =>
-      ["weather", "wind"].includes(signal.type)
-  ).length;
-  const sourceCount = new Set(data.evidence.map((item) => item.source)).size;
-  const unavailableEvidence = data.evidence.filter((item) => item.severity === "unknown");
-  const unavailableSourceCount = new Set(unavailableEvidence.map((item) => item.source)).size;
+  const countOf = (types) => data.signals.filter((signal) => types.includes(signal.type)).length;
+  const alertCount = countOf(["official-alert"]);
+  const airportIssueCount = countOf(["aviation-weather", "faa-airport-status"]);
+  const forecastIssueCount = countOf(["weather", "wind"]);
+  const roadIssueCount = countOf(["road-closure"]);
+  const statuses = data.sources.map((source) => sourceStatus(source, data.evidence));
+  const sourceCount = data.sources.length;
+  const failedCount = statuses.filter((status) => status.tone === "failed").length;
 
   const metrics = [
     {
-      label: "Risk Score",
+      label: "Risk score",
       val: `${data.score.level} risk`,
       sub: `${data.score.points} pts · ${data.score.confidence} confidence`,
-      sev: data.score.level.toLowerCase()
+      sev: data.score.level.toLowerCase(),
+      badge: data.score.level
     },
     {
       label: "Signals",
       val: `${data.signals.length} detected`,
-      sub: `${alertCount} alerts · ${airportIssueCount} airport · ${forecastIssueCount} forecast`,
-      sev: data.signals.length ? data.score.level.toLowerCase() : "low"
+      sub: `${alertCount} alerts · ${airportIssueCount} airport · ${forecastIssueCount} forecast · ${roadIssueCount} road`,
+      sev: data.signals.length ? data.score.level.toLowerCase() : "low",
+      badge: data.signals.length ? data.score.level : "None"
     },
     {
       label: "Evidence",
       val: `${data.evidence.length} items`,
-      sub: `${sourceCount} external sources checked`,
-      sev: "info"
+      sub: `${sourceCount} sources checked`,
+      sev: "info",
+      badge: "Info"
     },
     {
-      label: "Source Health",
-      val: unavailableSourceCount ? `${unavailableSourceCount} partial` : "All available",
-      sub: sourceHealthSummary(sourceCount, unavailableEvidence),
-      sev: unavailableSourceCount ? "unknown" : "low"
+      label: "Source health",
+      val: failedCount ? `${failedCount} not responding` : "All available",
+      sub: failedCount ? "Details are kept in the evidence below" : `${sourceCount - failedCount} of ${sourceCount} sources responded`,
+      sev: failedCount ? "medium" : "low",
+      badge: failedCount ? "Partial" : "Healthy"
     }
   ];
 
@@ -374,11 +417,9 @@ function renderGlance(data) {
       <span class="meta">${m.label}</span>
       <strong class="metric-val">${m.val}</strong>
       <span class="body">${m.sub}</span>
-      <span class="severity ${m.sev}">${m.sev}</span>
+      <span class="severity ${m.sev}">${m.badge}</span>
     </div>
-  `).join('') + `
-    <p class="summary-mode-note">${summaryModeText(data.ai)} ${unavailableSourceCount ? "Unavailable source details are preserved in the evidence section so the assessment remains auditable." : "All checked sources returned usable data for this assessment."}</p>
-  `;
+  `).join('');
 }
 
 function renderWhySummary(data) {
@@ -475,7 +516,10 @@ function scoreReason(signal) {
   const flightBonus = signal.type === "aviation-weather" && (signal.points || 0) > severityBasePoints(signal.severity)
       ? "; flight mode adds +1 airport-weather bonus"
       : "";
-  return `${severityText}${flightBonus}. Evidence: ${signal.evidence || "source evidence"}.`;
+  const evidence = signal.type === "road-closure"
+      ? signal.evidence.split("; ").map(friendlyRoadTitle).join(", ")
+      : signal.evidence;
+  return `${severityText}${flightBonus}. Evidence: ${evidence || "source evidence"}.`;
 }
 
 function severityBasePoints(severity) {
@@ -524,25 +568,45 @@ function renderSignals(signals) {
   }
 
   groupSignals(signals).forEach((group, index) => {
-    const wrapper = document.createElement("details");
-    wrapper.className = "evidence-group signal-group";
-    if (index === 0) wrapper.open = true;
-    wrapper.innerHTML = `
-      <summary>
-        <span class="summary-title"></span>
-        <span class="summary-description"></span>
-      </summary>
-      <div class="evidence-group-body"></div>
-    `;
-    wrapper.querySelector(".summary-title").textContent = group.title;
-    wrapper.querySelector(".summary-description").textContent = group.description;
-
-    const body = wrapper.querySelector(".evidence-group-body");
-    for (const signal of group.items) {
-      body.appendChild(createSignalCard(signal));
-    }
-    container.appendChild(wrapper);
+    container.appendChild(createGroup(group, index === 0, createSignalCard));
   });
+}
+
+const GROUP_PREVIEW_COUNT = 3;
+
+// Shared collapsible group: the first few items show, the rest sit behind "Show all".
+function createGroup(group, open, renderItem) {
+  const wrapper = document.createElement("details");
+  wrapper.className = "evidence-group";
+  wrapper.open = open;
+  wrapper.innerHTML = `
+    <summary>
+      <span class="summary-title"></span>
+      <span class="summary-description"></span>
+    </summary>
+    <div class="evidence-group-body"></div>
+  `;
+  wrapper.querySelector(".summary-title").textContent = group.title;
+  wrapper.querySelector(".summary-description").textContent = group.description;
+
+  const body = wrapper.querySelector(".evidence-group-body");
+  group.items.forEach((item, index) => {
+    const card = renderItem(item);
+    if (index >= GROUP_PREVIEW_COUNT) card.classList.add("hidden");
+    body.appendChild(card);
+  });
+  if (group.items.length > GROUP_PREVIEW_COUNT) {
+    const more = document.createElement("button");
+    more.type = "button";
+    more.className = "show-all-button";
+    more.textContent = `Show all ${group.items.length}`;
+    more.addEventListener("click", () => {
+      body.querySelectorAll(".card.hidden").forEach((card) => card.classList.remove("hidden"));
+      more.remove();
+    });
+    body.appendChild(more);
+  }
+  return wrapper;
 }
 
 function createSignalCard(signal) {
@@ -552,42 +616,39 @@ function createSignalCard(signal) {
     <p class="meta"></p>
     <p><strong></strong></p>
     <p class="body"></p>
-    ${signal.points !== undefined ? `<p class="field-note points"></p>` : ""}
-    <span class="severity ${signal.severity}">${signal.severity}</span>
+    <div class="card-footer">
+      <span class="severity ${signal.severity}">${signal.severity}</span>
+      <span class="points-chip"></span>
+    </div>
   `;
-  card.querySelector(".meta").textContent = `${signal.type} · ${signal.severity}`;
+  card.querySelector(".meta").textContent = shortSignalLabel(signal);
   card.querySelector("strong").textContent = signal.message;
-  card.querySelector(".body").textContent = signal.evidence || "";
-  const points = card.querySelector(".points");
-  if (points) points.textContent = pointExplanation(signal);
+  const body = signal.type === "road-closure"
+      ? signal.evidence.split("; ").map(friendlyRoadTitle).join(" · ")
+      : signal.evidence || "";
+  card.querySelector(".body").textContent = body === signal.message ? "" : body;
+  card.querySelector(".points-chip").textContent = `+${signal.points || 0} pts`;
   return card;
 }
 
-function pointExplanation(signal) {
-  const points = signal.points || 0;
-  const label = `Adds ${points} point${points === 1 ? "" : "s"} to the risk score.`;
-  if (signal.type === "aviation-weather" && points === 4 && signal.severity === "medium") {
-    return `${label} 3 medium-risk points + 1 flight-focused airport bonus.`;
-  }
-  if (signal.type === "aviation-weather" && points === 7 && signal.severity === "high") {
-    return `${label} 6 high-risk points + 1 flight-focused airport bonus.`;
-  }
-  if (signal.severity === "high") return `${label} High-risk signal = 6 points.`;
-  if (signal.severity === "medium") return `${label} Medium-risk signal = 3 points.`;
-  if (signal.severity === "low") return `${label} Low-risk signal = 1 point.`;
-  return label;
+function friendlyRoadTitle(title) {
+  return String(title || "")
+      .replace(/^Full\s*[—-]\s*(.+)$/i, "Full closure on $1")
+      .replace(/^Work Zone\s*[—-]\s*(.+)$/i, "Work zone on $1")
+      .replace(/^Lane\s*[—-]\s*(.+)$/i, "Lane closure on $1");
 }
 
-function shortPointReason(signal) {
-  if (signal.type === "aviation-weather" && signal.points > 0) {
-    return " (flight bonus included)";
-  }
-  return "";
+function cleanRoadDescription(text) {
+  return String(text || "")
+      .replace(/,?\s*est\.? delay Not Reported( min)?/i, "")
+      .trim();
 }
 
 function shortSignalLabel(signal) {
   if (signal.type === "weather") return "Heavy precipitation forecast";
   if (signal.type === "wind") return "Wind forecast";
+  if (signal.type === "road-closure") return "Road closures";
+  if (signal.type === "faa-airport-status") return "FAA airport status";
   if (signal.type === "aviation-weather") {
     const match = signal.message.match(/near\s+([A-Z0-9]+)/);
     return match ? `${match[1]} airport weather` : "Airport weather";
@@ -600,71 +661,27 @@ function shortSignalLabel(signal) {
 }
 
 function groupSignals(signals) {
-  const forecast = [];
-  const officialAlerts = [];
-  const airportWeather = [];
-  const otherSignals = [];
-
-  for (const signal of signals) {
-    if (["weather", "wind"].includes(signal.type)) {
-      forecast.push(signal);
-    } else if (signal.type === "official-alert") {
-      officialAlerts.push(signal);
-    } else if (signal.type === "aviation-weather") {
-      airportWeather.push(signal);
-    } else {
-      otherSignals.push(signal);
-    }
-  }
-
-  return [
-    {
-      title: `Forecast weather signals (${forecast.length})`,
-      description: "Open-Meteo precipitation or wind conditions that affect the score.",
-      items: forecast
-    },
-    {
-      title: `Official alert signals (${officialAlerts.length})`,
-      description: "National Weather Service alerts that affect the score.",
-      items: officialAlerts
-    },
-    {
-      title: `Airport weather signals (${airportWeather.length})`,
-      description: "Airport observations such as MVFR, IFR, LIFR, gusts, or visibility that affect flight risk.",
-      items: airportWeather
-    },
-    {
-      title: `Other signals (${otherSignals.length})`,
-      description: "Additional detected risk signals.",
-      items: otherSignals
-    }
-  ].filter((group) => group.items.length);
+  const groups = [
+    { title: "Forecast weather", description: "Precipitation or wind in the forecast.", types: ["weather", "wind"] },
+    { title: "Official alerts", description: "Active National Weather Service alerts.", types: ["official-alert"] },
+    { title: "Airport conditions", description: "Airport weather and FAA delay or closure status.", types: ["aviation-weather", "faa-airport-status"] },
+    { title: "Road closures", description: "Current closures and incidents from 511 traffic data.", types: ["road-closure"] }
+  ];
+  const known = groups.flatMap((group) => group.types);
+  const result = groups.map((group) => {
+    const items = signals.filter((signal) => group.types.includes(signal.type));
+    return { title: `${group.title} (${items.length})`, description: group.description, items };
+  });
+  const other = signals.filter((signal) => !known.includes(signal.type));
+  result.push({ title: `Other signals (${other.length})`, description: "Additional detected risk signals.", items: other });
+  return result.filter((group) => group.items.length);
 }
 
-function renderEvidence(evidence) {
+function renderEvidence(data) {
   const container = document.querySelector("#evidence");
   container.innerHTML = "";
-
-  const groups = groupEvidence(evidence);
-  groups.forEach((group, index) => {
-    const wrapper = document.createElement("details");
-    wrapper.className = "evidence-group";
-    if (index === 0) wrapper.open = true;
-    wrapper.innerHTML = `
-      <summary>
-        <span class="summary-title"></span>
-        <span class="summary-description"></span>
-      </summary>
-      <div class="evidence-group-body"></div>
-    `;
-    wrapper.querySelector(".summary-title").textContent = group.title;
-    wrapper.querySelector(".summary-description").textContent = group.description;
-
-    const body = wrapper.querySelector(".evidence-group-body");
-    for (const item of group.items) {
-      body.appendChild(createEvidenceCard(item));
-    }
-    container.appendChild(wrapper);
+  groupEvidence(data).forEach((group, index) => {
+    container.appendChild(createGroup(group, index === 0, createEvidenceCard));
   });
 }
 
@@ -675,84 +692,100 @@ function createEvidenceCard(item) {
       <p class="meta"></p>
       <p><strong></strong></p>
       <p class="body"></p>
-      <span class="severity ${item.severity || "unknown"}">${item.severity || "unknown"}</span>
+      <div class="card-footer">
+        <span class="severity ${item.severity || "unknown"}">${item.severity || "unknown"}</span>
+      </div>
     `;
-  card.querySelector(".meta").textContent = `${item.source} · ${item.label}`;
-  card.querySelector("strong").textContent = item.headline;
-  card.querySelector(".body").textContent = summarizeDetails(item.details);
+  card.querySelector(".meta").textContent = `${sourceDisplayName(item.source)} · ${item.label}`;
+  const isRoad = item.source === "Road511 Traffic Data API";
+  const headline = isRoad ? friendlyRoadTitle(item.headline) : item.headline;
+  card.querySelector("strong").textContent = headline;
+  const body = isRoad
+      ? cleanRoadDescription(item.details && item.details.description)
+      : summarizeDetails(item.details);
+  card.querySelector(".body").textContent = body === headline || body === item.headline ? "" : body;
   return card;
 }
 
-function groupEvidence(evidence) {
-  const openMeteo = [];
-  const nationalWeather = [];
-  const otherEvidence = [];
-  const originAirports = [];
-  const destinationAirports = [];
-
-  for (const item of evidence) {
-    if (item.source === "Open-Meteo Forecast API") {
-      openMeteo.push(item);
-    } else if (item.source === "National Weather Service API") {
-      nationalWeather.push(item);
-    } else if (item.label === "Origin airport weather") {
-      originAirports.push(item);
-    } else if (item.label === "Destination airport weather") {
-      destinationAirports.push(item);
-    } else {
-      otherEvidence.push(item);
-    }
-  }
+function groupEvidence(data) {
+  const evidence = data.evidence;
+  const take = (predicate) => evidence.filter(predicate);
+  const openMeteo = take((item) => item.source === "Open-Meteo Forecast API");
+  const nationalWeather = take((item) => item.source === "National Weather Service API");
+  const originAirports = take((item) => item.label === "Origin airport weather");
+  const destinationAirports = take((item) => item.label === "Destination airport weather");
+  const faa = take((item) => item.source === "FAA NAS Status API");
+  const roads = take((item) => item.source === "Road511 Traffic Data API");
+  const grouped = new Set([...openMeteo, ...nationalWeather, ...originAirports, ...destinationAirports, ...faa, ...roads]);
+  const otherEvidence = take((item) => !grouped.has(item));
 
   return [
-    {
-      title: `Open-Meteo forecast (${openMeteo.length})`,
-      description: "Daily forecast data for the origin, midpoint, and destination.",
-      items: openMeteo
-    },
-    {
-      title: `National Weather Service (${nationalWeather.length})`,
-      description: "Official point forecasts and active alerts near the route endpoints.",
-      items: nationalWeather
-    },
-    {
-      title: `Origin airport weather (${originAirports.length})`,
-      description: aviationCategoryGuide(),
-      items: originAirports
-    },
-    {
-      title: `Destination airport weather (${destinationAirports.length})`,
-      description: aviationCategoryGuide(),
-      items: destinationAirports
-    },
-    {
-      title: `Other evidence (${otherEvidence.length})`,
-      description: "Additional source data reviewed for this assessment.",
-      items: otherEvidence
-    }
+    { title: `Forecast (${openMeteo.length})`, description: forecastResult(openMeteo), items: openMeteo },
+    { title: `National Weather Service (${nationalWeather.length})`, description: alertResult(nationalWeather), items: nationalWeather },
+    { title: `${placeName(data.input.origin)} airports (${originAirports.length})`, description: airportResult(originAirports), items: originAirports },
+    { title: `${placeName(data.input.destination)} airports (${destinationAirports.length})`, description: airportResult(destinationAirports), items: destinationAirports },
+    { title: `FAA airport status (${faa.length})`, description: faaResult(faa), items: faa },
+    { title: `Road closures (${roads.length})`, description: roadResult(roads, data.input.mode), items: roads },
+    { title: `Other evidence (${otherEvidence.length})`, description: "Additional source data reviewed for this assessment.", items: otherEvidence }
   ].filter((group) => group.items.length);
 }
 
-function aviationCategoryExplanation(category) {
-  return {
-    VFR: "VFR means Visual Flight Rules: good flying conditions with clear enough visibility for pilots to fly by visual reference.",
-    MVFR: "MVFR means Marginal Visual Flight Rules: reduced visibility or lower clouds, requiring more caution because conditions are getting worse.",
-    IFR: "IFR means Instrument Flight Rules: poor visibility or low clouds, so pilots rely more on instruments and delays or cancellations are more likely.",
-    LIFR: "LIFR means Low Instrument Flight Rules: very poor visibility or very low clouds; highest disruption risk."
-  }[category] || "";
+function placeName(location) {
+  return String(location || "").split(",")[0] || "Route";
 }
 
-function aviationCategoryGuide() {
-  return "Nearest airport observations. VFR means good flying conditions; MVFR means reduced visibility or lower clouds; IFR and LIFR mean poor conditions with higher disruption risk.";
+function allUnavailable(items) {
+  return items.length && items.every((item) => item.severity === "unknown");
+}
+
+function forecastResult(items) {
+  if (allUnavailable(items)) return "Forecast data did not respond.";
+  const details = items.map((item) => item.details || {});
+  const precip = Math.max(...details.map((d) => Number(d.precipitationProbabilityPercent) || 0));
+  const wind = Math.max(...details.map((d) => Number(d.maxWindKmh) || 0));
+  return `Up to ${Math.round(precip)}% chance of precipitation, wind up to ${Math.round(wind)} km/h.`;
+}
+
+function alertResult(items) {
+  if (allUnavailable(items)) return "Weather service did not respond.";
+  const alerts = items.filter((item) => / alert$/.test(item.label));
+  if (!alerts.length) return "No active alerts.";
+  return `${alerts.length} active alert${alerts.length === 1 ? "" : "s"}: ${alerts[0].details?.event || alerts[0].headline}.`;
+}
+
+function airportResult(items) {
+  if (allUnavailable(items)) return "Airport observations did not respond.";
+  return items
+      .filter((item) => item.details && item.details.station)
+      .map((item) => {
+        const d = item.details;
+        const wind = d.windKt !== undefined && d.windKt !== null ? `, wind ${d.windKt} kt` : "";
+        const gust = d.gustKt ? ` gusting ${d.gustKt}` : "";
+        return `${d.station}: ${d.flightCategory || "no category"}${wind}${gust}`;
+      })
+      .join(" · ") || "No nearby stations reported.";
+}
+
+function faaResult(items) {
+  if (allUnavailable(items)) return "FAA status did not respond.";
+  const airports = [...new Set(items.map((item) => item.details?.airport).filter(Boolean))];
+  const events = items.filter((item) => item.details?.eventType);
+  if (!events.length) return `No delays or closures at ${airports.join(" or ") || "the route airports"}.`;
+  return events.map((item) => item.headline).slice(0, 2).join(" · ");
+}
+
+function roadResult(items, mode) {
+  if (items.some((item) => /not connected/i.test(item.headline))) return "Road data is not connected for this deployment.";
+  if (allUnavailable(items)) return "Road data did not respond.";
+  const risky = items.filter((item) => ["medium", "high"].includes(item.severity));
+  const area = items[0]?.details?.jurisdiction;
+  if (!risky.length) return `No closures that affect the score${area ? ` in ${area}` : ""}.`;
+  const found = `${risky.length} closure${risky.length === 1 ? "" : "s"} or incident${risky.length === 1 ? "" : "s"} reported right now`;
+  return mode === "flight" ? `${found}, not scored for flight trips.` : `${found}.`;
 }
 
 function summarizeDetails(details) {
   if (!details) return "";
-  if (!Array.isArray(details) && details.flightCategory) {
-    const explanation = aviationCategoryExplanation(details.flightCategory);
-    const base = summarizeObjectDetails(details);
-    return explanation ? `${base} · ${explanation}` : base;
-  }
   if (Array.isArray(details)) {
     return details
         .map((item) => `${item.name || "Period"}: ${item.shortForecast || item.detailedForecast || ""}`)
@@ -775,14 +808,8 @@ function labelize(key) {
 
 function tripTypeLabel(mode) {
   return {
-    flight: "Flight: airport weather matters most",
-    drive: "Driving: route weather matters most",
-    general: "Business: mixed travel modes"
+    flight: "Flight",
+    drive: "Driving",
+    general: "Business travel"
   }[mode] || "Travel assessment";
-}
-
-function summaryModeText(ai) {
-  if (ai.used) return "Summary generated with the OpenAI API.";
-  if (ai.error) return "Summary generated locally because the OpenAI API is unavailable.";
-  return "Summary generated locally. OpenAI API is disabled.";
 }
