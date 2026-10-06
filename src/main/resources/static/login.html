@@ -12,8 +12,13 @@
     <p class="eyebrow">Employee Travel Risk Platform</p>
     <h1>Sign In</h1>
     <p class="lede">
-      Company access keeps route checks, risk evidence, and operational decisions inside the travel team.
+      Company access keeps route checks, risk evidence, saved trips, and operational decisions inside the travel team.
     </p>
+    <div class="login-value-list" aria-label="Platform capabilities">
+      <p><strong>Assess route risk</strong><span>Weather, airport, road, and policy signals in one operational view.</span></p>
+      <p><strong>Monitor saved trips</strong><span>Keep important employee routes available for follow-up and review.</span></p>
+      <p><strong>Support admins</strong><span>Review recent assessments, monitoring status, and source health.</span></p>
+    </div>
     <div class="login-proof">
       <span>Weather alerts</span>
       <span>Airline delays</span>
@@ -39,11 +44,11 @@
     <form class="login-form" method="post" action="/login">
       <label>
         Username
-        <input name="username" type="text" autocomplete="username" required autofocus />
+        <input name="username" type="text" autocomplete="username" placeholder="employee1@email.com" required autofocus />
       </label>
       <label>
         Password
-        <input name="password" type="password" autocomplete="current-password" required />
+        <input name="password" type="password" autocomplete="current-password" placeholder="travel-risk-demo" required />
       </label>
       <button type="submit">Sign in</button>
     </form>
@@ -51,11 +56,12 @@
     <div class="sso-divider"><span>or</span></div>
     <a class="sso-button" href="/oauth2/authorization/google">Continue with Google</a>
 
-    <p class="login-demo-note">
-      Employee demo: employee1@email.com / travel-risk-demo<br />
-      Any employee number works, for example employee100@email.com.<br />
-      Admin access uses the configured company admin account.
-    </p>
+    <div class="login-demo-note" aria-label="Demo credentials">
+      <p><strong>Demo employee</strong><span>employee1@email.com</span></p>
+      <p><strong>Password</strong><span>travel-risk-demo</span></p>
+      <p>Any employee number works, like <span>employee100@email.com</span>.</p>
+      <p><strong>Admin access is available only for the configured admin account.</strong></p>
+    </div>
   </section>
 </main>
 <script>
