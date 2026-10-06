@@ -16,10 +16,19 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+
 import java.util.function.Consumer;
+
+import java.util.concurrent.CompletionException;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.regex.Pattern;
+import jakarta.annotation.PreDestroy;
 import javax.xml.parsers.DocumentBuilderFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -40,15 +49,17 @@ import org.xml.sax.InputSource;
 @Service
 public class TravelRiskService {
   private static final Pattern AIRPORT_CODE = Pattern.compile("^[A-Z0-9]{3,4}$");
+
   private static final String UNAVAILABLE_STATUS = "Temporarily unavailable";
   private static final String NOT_CONFIGURED_STATUS = "Not configured";
-
+  private static final int MAX_CACHED_GEOCODES = 500;
   private final RestClient restClient;
   private final ObjectMapper objectMapper;
   private final String userAgent;
   private final String openAiApiKey;
   private final String openAiModel;
   private final String road511ApiKey;
+
   private final Consumer<List<SourceCheck>> sourceCheckListener;
 
   /** Every external source a check consults, in the order results show them. */
@@ -59,6 +70,16 @@ public class TravelRiskService {
       new Source("Aviation Weather Center API", "METAR airport weather observations near the route endpoints", "https://aviationweather.gov/data/api/"),
       new Source("FAA NAS Status API", "Live airport ground stops, delay programs, arrival/departure delays, and airport closures", "https://nasstatus.faa.gov/api/airport-status-information"),
       new Source("Road511 Traffic Data API", "Live traffic incidents and closures, where available", "https://www.road511.com/docs.html"));
+  
+  private final long sourceTimeoutMs;
+  private final long aiTimeoutMs;
+  // Outside calls are blocking I/O, so each gets its own virtual thread instead of
+  // queueing on the CPU-sized common pool.
+  private final ExecutorService ioExecutor = Executors.newVirtualThreadPerTaskExecutor();
+  private final Map<String, GeoPoint> geocodeCache = new ConcurrentHashMap<>();
+  // weather.gov maps a point to its forecast URL; that mapping rarely changes.
+  private final Map<String, String> nwsForecastUrlCache = new ConcurrentHashMap<>();
+
 
   private final Map<String, GeoPoint> knownLocations = Map.ofEntries(
       city("new york, ny", "New York, NY, United States", 40.7128, -74.0060),
@@ -86,10 +107,22 @@ public class TravelRiskService {
   public TravelRiskService(
       RestClient.Builder restClientBuilder,
       ObjectMapper objectMapper,
+      String userAgent,
+      String openAiApiKey,
+      String openAiModel,
+      String road511ApiKey) {
+    this(restClientBuilder, objectMapper, userAgent, openAiApiKey, openAiModel, road511ApiKey, 4000, 6000);
+  }
+
+  @Autowired
+  public TravelRiskService(
+      RestClient.Builder restClientBuilder,
+      ObjectMapper objectMapper,
       @Value("${travel-risk.user-agent}") String userAgent,
       @Value("${travel-risk.openai.api-key}") String openAiApiKey,
       @Value("${travel-risk.openai.model}") String openAiModel,
       @Value("${travel-risk.road511.api-key:}") String road511ApiKey,
+
       SourceHealthMonitor sourceHealthMonitor) {
     this(restClientBuilder, objectMapper, userAgent, openAiApiKey, openAiModel, road511ApiKey, sourceHealthMonitor::record);
   }
@@ -101,6 +134,10 @@ public class TravelRiskService {
 
   TravelRiskService(RestClient.Builder restClientBuilder, ObjectMapper objectMapper, String userAgent,
       String openAiApiKey, String openAiModel, String road511ApiKey, Consumer<List<SourceCheck>> sourceCheckListener) {
+      @Value("${travel-risk.analyze.source-timeout-ms:4000}") long sourceTimeoutMs,
+      @Value("${travel-risk.analyze.ai-timeout-ms:6000}") long aiTimeoutMs) {
+    this.sourceTimeoutMs = sourceTimeoutMs;
+    this.aiTimeoutMs = aiTimeoutMs;
     this.restClient = restClientBuilder.defaultHeader(HttpHeaders.USER_AGENT, userAgent).build();
     this.objectMapper = objectMapper;
     this.userAgent = userAgent;
@@ -110,8 +147,17 @@ public class TravelRiskService {
     this.sourceCheckListener = sourceCheckListener;
   }
 
+
   @Cacheable(value = "tripAssessments", key = "{#rawOrigin, #rawDestination, #rawDate, #rawMode, #rawOriginAirport, #rawDestinationAirport}",
       unless = "#result.degraded()")
+
+  @PreDestroy
+  void shutdown() {
+    ioExecutor.shutdownNow();
+  }
+
+  @Cacheable(value = "tripAssessments", key = "{#rawOrigin, #rawDestination, #rawDate, #rawMode, #rawOriginAirport, #rawDestinationAirport}", sync = true)
+
   public Assessment analyze(String rawOrigin, String rawDestination, String rawDate, String rawMode,
       String rawOriginAirport, String rawDestinationAirport) {
     String origin = clean(rawOrigin);
@@ -126,8 +172,10 @@ public class TravelRiskService {
     }
     validateTravelDate(date);
 
-    GeoPoint originGeo = geocode(origin);
-    GeoPoint destinationGeo = geocode(destination);
+    CompletableFuture<GeoPoint> originLookup = CompletableFuture.supplyAsync(() -> geocode(origin), ioExecutor);
+    CompletableFuture<GeoPoint> destinationLookup = CompletableFuture.supplyAsync(() -> geocode(destination), ioExecutor);
+    GeoPoint originGeo = await(originLookup);
+    GeoPoint destinationGeo = await(destinationLookup);
     GeoPoint midpoint = new GeoPoint("Route midpoint",
         (originGeo.lat() + destinationGeo.lat()) / 2,
         (originGeo.lon() + destinationGeo.lon()) / 2,
@@ -196,10 +244,24 @@ public class TravelRiskService {
   }
 
   private GeoPoint geocode(String query) {
-    GeoPoint known = knownLocations.get(query.toLowerCase(Locale.ROOT));
+    String key = query.toLowerCase(Locale.ROOT);
+    GeoPoint known = knownLocations.get(key);
     if (known != null) {
       return known;
     }
+    GeoPoint cached = geocodeCache.get(key);
+    if (cached != null) {
+      return cached;
+    }
+    GeoPoint found = lookUpLocation(query);
+    if (geocodeCache.size() >= MAX_CACHED_GEOCODES) {
+      geocodeCache.clear();
+    }
+    geocodeCache.put(key, found);
+    return found;
+  }
+
+  private GeoPoint lookUpLocation(String query) {
 
     String url = UriComponentsBuilder.fromUriString("https://nominatim.openstreetmap.org/search")
         .queryParam("q", query)
@@ -274,9 +336,11 @@ public class TravelRiskService {
     List<Evidence> evidence = new ArrayList<>();
     List<Signal> signals = new ArrayList<>();
     try {
-      String pointUrl = "https://api.weather.gov/points/%.4f,%.4f".formatted(point.lat(), point.lon());
-      Map<String, Object> pointData = getMap(pointUrl);
-      String forecastUrl = string(map(pointData.get("properties")).get("forecast"));
+      String alertsUrl = UriComponentsBuilder.fromUriString("https://api.weather.gov/alerts/active")
+          .queryParam("point", point.lat() + "," + point.lon())
+          .toUriString();
+      CompletableFuture<Map<String, Object>> alertsLookup = CompletableFuture.supplyAsync(() -> getMap(alertsUrl), ioExecutor);
+      String forecastUrl = nwsForecastUrl(point);
       if (!forecastUrl.isBlank()) {
         Map<String, Object> forecast = getMap(forecastUrl);
         List<Map<String, Object>> periods = listOfMaps(map(forecast.get("properties")).get("periods"));
@@ -292,10 +356,7 @@ public class TravelRiskService {
         }
       }
 
-      String alertsUrl = UriComponentsBuilder.fromUriString("https://api.weather.gov/alerts/active")
-          .queryParam("point", point.lat() + "," + point.lon())
-          .toUriString();
-      Map<String, Object> alerts = getMap(alertsUrl);
+      Map<String, Object> alerts = await(alertsLookup);
       for (Map<String, Object> alert : listOfMaps(alerts.get("features")).stream().limit(5).toList()) {
         Map<String, Object> props = map(alert.get("properties"));
         String severity = nwsSeverity(string(props.get("severity")), string(props.get("urgency")));
@@ -322,9 +383,28 @@ public class TravelRiskService {
     return new Bundle(evidence, signals);
   }
 
+  private String nwsForecastUrl(GeoPoint point) {
+    String pointUrl = "https://api.weather.gov/points/%.4f,%.4f".formatted(point.lat(), point.lon());
+    String cached = nwsForecastUrlCache.get(pointUrl);
+    if (cached != null) {
+      return cached;
+    }
+    Map<String, Object> pointData = getMap(pointUrl);
+    String forecastUrl = string(map(pointData.get("properties")).get("forecast"));
+    if (!forecastUrl.isBlank()) {
+      if (nwsForecastUrlCache.size() >= MAX_CACHED_GEOCODES) {
+        nwsForecastUrlCache.clear();
+      }
+      nwsForecastUrlCache.put(pointUrl, forecastUrl);
+    }
+    return forecastUrl;
+  }
+
   private Bundle getAviationBundle(GeoPoint origin, GeoPoint destination, String originAirport, String destinationAirport) {
-    Bundle originData = getNearestMetars(origin, "Origin airport weather", originAirport);
+    CompletableFuture<Bundle> originLookup = CompletableFuture.supplyAsync(
+        () -> getNearestMetars(origin, "Origin airport weather", originAirport), ioExecutor);
     Bundle destinationData = getNearestMetars(destination, "Destination airport weather", destinationAirport);
+    Bundle originData = await(originLookup);
     List<Evidence> evidence = new ArrayList<>(originData.evidence());
     evidence.addAll(destinationData.evidence());
     List<Signal> signals = new ArrayList<>(originData.signals());
@@ -612,27 +692,35 @@ public class TravelRiskService {
 
   private Synthesis synthesize(SynthesisContext context) {
     if (openAiApiKey != null && !openAiApiKey.isBlank()) {
-      try {
-        Map<String, Object> response = restClient.post()
-            .uri("https://api.openai.com/v1/responses")
-            .contentType(MediaType.APPLICATION_JSON)
-            .header(HttpHeaders.AUTHORIZATION, "Bearer " + openAiApiKey)
-            .body(openAiPayload(context))
-            .retrieve()
-            .body(new ParameterizedTypeReference<>() {});
-        String text = firstNonBlank(string(response == null ? "" : response.get("output_text")), extractOutputText(response));
-        Map<String, Object> parsed = objectMapper.readValue(text, new TypeReference<>() {});
-        return new Synthesis(
-            string(parsed.get("summary")),
-            string(parsed.get("recommendation")),
-            string(parsed.get("uncertainty")),
-            Map.of("used", true, "provider", "OpenAI Responses API"));
-      } catch (Exception error) {
-        Synthesis fallback = localSynthesis(context);
-        return fallback.withAi(Map.of("used", false, "provider", "local fallback", "error", error.getMessage()));
-      }
+      // A slow AI summary should not hold up the whole check, so fall back to the local summary.
+      return CompletableFuture.supplyAsync(() -> aiSynthesis(context), ioExecutor)
+          .completeOnTimeout(localSynthesis(context).withAi(Map.of("used", false, "provider", "local fallback",
+              "reason", "AI summary took longer than " + aiTimeoutMs + " ms")), aiTimeoutMs, TimeUnit.MILLISECONDS)
+          .join();
     }
     return localSynthesis(context).withAi(Map.of("used", false, "provider", "local fallback", "reason", "OPENAI_API_KEY not set"));
+  }
+
+  private Synthesis aiSynthesis(SynthesisContext context) {
+    try {
+      Map<String, Object> response = restClient.post()
+          .uri("https://api.openai.com/v1/responses")
+          .contentType(MediaType.APPLICATION_JSON)
+          .header(HttpHeaders.AUTHORIZATION, "Bearer " + openAiApiKey)
+          .body(openAiPayload(context))
+          .retrieve()
+          .body(new ParameterizedTypeReference<>() {});
+      String text = firstNonBlank(string(response == null ? "" : response.get("output_text")), extractOutputText(response));
+      Map<String, Object> parsed = objectMapper.readValue(text, new TypeReference<>() {});
+      return new Synthesis(
+          string(parsed.get("summary")),
+          string(parsed.get("recommendation")),
+          string(parsed.get("uncertainty")),
+          Map.of("used", true, "provider", "OpenAI Responses API"));
+    } catch (Exception error) {
+      Synthesis fallback = localSynthesis(context);
+      return fallback.withAi(Map.of("used", false, "provider", "local fallback", "error", String.valueOf(error.getMessage())));
+    }
   }
 
   private Map<String, Object> openAiPayload(SynthesisContext context) {
@@ -671,7 +759,7 @@ public class TravelRiskService {
     String recommendation = switch (context.score().level()) {
       case "High" -> "Consider alternate timing or routing, and confirm " + confirm + " before departure.";
       case "Medium" -> "Proceed with caution, build in extra time, and recheck " + confirm + " closer to departure.";
-      default -> "Trip risk appears manageable based on currently available evidence; still recheck conditions before leaving.";
+      default -> "Low risk. Recheck conditions before you leave.";
     };
     String summary = topSignals.isEmpty()
         ? context.score().level() + " disruption risk. No major risk signals were found in the current data sources."
@@ -721,6 +809,7 @@ public class TravelRiskService {
           orderedMap("location", location, "status", UNAVAILABLE_STATUS), "")), List.of());
     }
   }
+
 
   private CompletableFuture<TimedBundle> bundleFuture(BundleLoader loader, String source, String label, String location) {
     return CompletableFuture.supplyAsync(() -> {
@@ -777,6 +866,22 @@ public class TravelRiskService {
 
   private static long elapsedMs(long startNanos) {
     return (System.nanoTime() - startNanos) / 1_000_000;
+
+  private CompletableFuture<Bundle> bundleFuture(BundleLoader loader, String source, String label, String location) {
+    Bundle timedOut = new Bundle(List.of(new Evidence(source, label, "unknown", label + " took too long to respond during this check.",
+        orderedMap("location", location, "status", "Timed out after " + sourceTimeoutMs + " ms"), "")), List.of());
+    return CompletableFuture.supplyAsync(() -> safeBundle(loader, source, label, location), ioExecutor)
+        .completeOnTimeout(timedOut, sourceTimeoutMs, TimeUnit.MILLISECONDS);
+  }
+
+  private static <T> T await(CompletableFuture<T> future) {
+    try {
+      return future.join();
+    } catch (CompletionException error) {
+      if (error.getCause() instanceof RuntimeException cause) throw cause;
+      throw error;
+    }
+
   }
 
   private Map<String, Object> getMap(String url) {

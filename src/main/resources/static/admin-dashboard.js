@@ -1,3 +1,8 @@
+const ADMIN_HISTORY_PREVIEW_ROWS = 5;
+const ADMIN_SECTION_STORAGE_KEY = "adminDashboardSections";
+let adminHistoryRecords = [];
+let adminHistoryExpanded = false;
+
 function setupAdminDashboard() {
   const button = document.querySelector("#refresh-admin-dashboard");
   if (!button) return;
@@ -6,7 +11,53 @@ function setupAdminDashboard() {
   if (clearButton) {
     clearButton.addEventListener("click", clearAssessmentHistory);
   }
+  const historyToggle = document.querySelector("#admin-history-toggle");
+  if (historyToggle) {
+    historyToggle.addEventListener("click", () => {
+      adminHistoryExpanded = !adminHistoryExpanded;
+      renderAdminHistory(adminHistoryRecords);
+    });
+  }
+  const slowCallsTile = document.querySelector("#admin-slow-calls-tile");
+  if (slowCallsTile) {
+    slowCallsTile.addEventListener("click", showAdminMonitoring);
+  }
+  setupAdminSections();
   loadAdminDashboard();
+}
+
+function setupAdminSections() {
+  const saved = readAdminSectionState();
+  document.querySelectorAll(".admin-section[data-section]").forEach((section) => {
+    const name = section.dataset.section;
+    if (Object.prototype.hasOwnProperty.call(saved, name)) {
+      section.open = saved[name];
+    }
+    section.addEventListener("toggle", () => {
+      const state = readAdminSectionState();
+      state[name] = section.open;
+      try {
+        localStorage.setItem(ADMIN_SECTION_STORAGE_KEY, JSON.stringify(state));
+      } catch {
+        // Collapsed sections just won't be remembered.
+      }
+    });
+  });
+}
+
+function readAdminSectionState() {
+  try {
+    return JSON.parse(localStorage.getItem(ADMIN_SECTION_STORAGE_KEY)) || {};
+  } catch {
+    return {};
+  }
+}
+
+function showAdminMonitoring() {
+  const section = document.querySelector("#admin-monitoring-section");
+  if (!section) return;
+  section.open = true;
+  section.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
 async function loadAdminDashboard() {
@@ -18,7 +69,7 @@ async function loadAdminDashboard() {
   const monitoringEventsTable = document.querySelector("#admin-monitoring-events");
   if (!table) return;
 
-  table.innerHTML = `<tr><td colspan="6">Loading admin dashboard...</td></tr>`;
+  table.innerHTML = `<tr><td colspan="7">Loading admin dashboard...</td></tr>`;
   if (historyTable) {
     historyTable.innerHTML = `<tr><td colspan="6">Loading assessment history...</td></tr>`;
   }
@@ -45,7 +96,7 @@ async function loadAdminDashboard() {
     applyReadOnlyMode(Boolean(data.readOnly));
     renderAdminDashboard(data);
   } catch (error) {
-    table.innerHTML = `<tr><td colspan="6">${error.message}</td></tr>`;
+    table.innerHTML = `<tr><td colspan="7">${error.message}</td></tr>`;
     if (historyTable) {
       historyTable.innerHTML = `<tr><td colspan="6">${error.message}</td></tr>`;
     }
@@ -79,25 +130,27 @@ function hideAdminDashboard() {
 function renderAdminDashboard(data) {
   const stats = data.stats || {};
   const monitoring = data.monitoring || {};
-  const values = [
-    stats.savedTrips || 0,
-    stats.employees || 0,
-    stats.highRiskTrips || 0,
-    stats.unreadAlerts || 0,
-    stats.historyRecords || 0,
-    monitoring.failures || 0,
-    monitoring.slowCalls || 0
-  ];
-  document.querySelectorAll("#admin-stats strong").forEach((node, index) => {
-    node.textContent = values[index];
-  });
+  const slowOrFailed = (monitoring.failures || 0) + (monitoring.slowCalls || 0);
+  const employees = stats.employees || 0;
+  setAdminStat("savedTrips", stats.savedTrips || 0, `by ${employees} ${employees === 1 ? "employee" : "employees"}`);
+  setAdminStat("highRiskTrips", stats.highRiskTrips || 0, "saved trips rated High");
+  setAdminStat("historyRecords", stats.historyRecords || 0, `${stats.highRiskChecks || 0} rated High since Oct 6 fix`);
+  setAdminStat("slowOrFailed", slowOrFailed,
+    slowOrFailed ? `${monitoring.slowCalls || 0} slow · ${monitoring.failures || 0} failed` : "No slow or failed calls");
 
   const table = document.querySelector("#admin-trips");
   table.innerHTML = "";
   const trips = data.trips || [];
+  setAdminCount("#admin-trip-count", trips.length);
 
   if (!trips.length) {
+
     table.innerHTML = `<tr><td colspan="6">No employee trips have been saved yet.</td></tr>`;
+  }
+
+  for (const trip of trips) {
+    table.appendChild(adminAssessmentRow(trip, trip.updatedAt, false));
+    table.innerHTML = `<tr><td colspan="7">No employee trips have been saved yet.</td></tr>`;
     renderAdminHistory(data.history || []);
     return;
   }
@@ -112,6 +165,7 @@ function renderAdminDashboard(data) {
       <td></td>
       <td><span class="admin-risk"></span></td>
       <td></td>
+      <td></td>
     `;
     row.children[0].textContent = trip.username;
     row.children[1].querySelector("strong").textContent = `${trip.origin} to ${trip.destination}`;
@@ -121,55 +175,111 @@ function renderAdminDashboard(data) {
     const risk = row.querySelector(".admin-risk");
     risk.className = `admin-risk ${riskLevel.toLowerCase()}`;
     risk.textContent = `${riskLevel}${trip.riskPoints !== null && trip.riskPoints !== undefined ? ` · ${trip.riskPoints} pts` : ""}`;
-    row.children[5].textContent = formatNotificationTime(trip.updatedAt);
+    row.children[5].appendChild(policyBadge(trip.policy));
+    row.children[6].textContent = formatNotificationTime(trip.updatedAt);
     table.appendChild(row);
+
   }
 
-  renderAdminHistory(data.history || []);
-  renderAdminMonitoring(data.monitoring || {});
+  adminHistoryExpanded = false;
+  renderAdminHistory(data.history || [], stats.historyRecords);
+  renderAdminMonitoring(monitoring);
 }
 
-function renderAdminHistory(history) {
+function setAdminStat(name, value, note) {
+  const valueNode = document.querySelector(`[data-stat="${name}"]`);
+  const noteNode = document.querySelector(`[data-stat-note="${name}"]`);
+  if (valueNode) valueNode.textContent = value;
+  if (noteNode) noteNode.textContent = note;
+}
+
+function setAdminCount(selector, value) {
+  const node = document.querySelector(selector);
+  if (node) node.textContent = value;
+}
+
+function adminAssessmentRow(record, timestamp, scoredBeforeFix) {
+  const row = document.createElement("tr");
+  const riskLevel = record.riskLevel || "Unscored";
+  row.innerHTML = `
+    <td><strong class="admin-employee"></strong><span></span></td>
+    <td><strong></strong><span></span></td>
+    <td class="admin-nowrap"></td>
+    <td class="admin-nowrap"></td>
+    <td><span class="admin-risk"></span></td>
+    <td class="admin-nowrap"></td>
+  `;
+  const employee = record.employee || { name: record.username };
+  row.children[0].querySelector("strong").textContent = employee.name || record.username;
+  const employeeDetail = row.children[0].querySelector("span");
+  if (employee.detail) {
+    employeeDetail.textContent = employee.detail;
+  } else {
+    employeeDetail.remove();
+  }
+  row.children[1].querySelector("strong").textContent = `${record.origin} to ${record.destination}`;
+  row.children[1].querySelector("span").textContent = record.summary || "Saved assessment snapshot";
+  row.children[2].textContent = formatAdminTravelDate(record.date);
+  row.children[3].textContent = adminTripTypeLabel(record.mode);
+  const risk = row.querySelector(".admin-risk");
+  risk.className = `admin-risk ${riskLevel.toLowerCase()}`;
+  risk.textContent = `${riskLevel}${record.riskPoints !== null && record.riskPoints !== undefined ? ` · ${record.riskPoints} pts` : ""}`;
+  if (scoredBeforeFix) {
+    row.classList.add("admin-row-stale");
+    const tag = document.createElement("span");
+    tag.className = "admin-stale-tag";
+    tag.textContent = "Scored before Oct 6 fix";
+    tag.title = "Recorded before road closures were deduplicated, so this score may be too high.";
+    row.children[4].appendChild(tag);
+  }
+  row.children[5].textContent = formatAdminTimestamp(timestamp);
+  return row;
+}
+
+function renderAdminHistory(history, total) {
+  adminHistoryRecords = history;
   const table = document.querySelector("#admin-history");
+  const toggle = document.querySelector("#admin-history-toggle");
+  const note = document.querySelector("#admin-history-note");
   if (!table) return;
 
+  const totalRecords = total ?? history.length;
+  setAdminCount("#admin-history-count", totalRecords);
   table.innerHTML = "";
   if (!history.length) {
     table.innerHTML = `<tr><td colspan="6">No assessment history yet.</td></tr>`;
+    if (toggle) toggle.classList.add("hidden");
+    if (note) note.textContent = "";
     return;
   }
 
-  for (const record of history) {
-    const row = document.createElement("tr");
-    const riskLevel = record.riskLevel || "Unscored";
-    row.innerHTML = `
-      <td></td>
-      <td><strong></strong><span></span></td>
-      <td></td>
-      <td></td>
-      <td><span class="admin-risk"></span></td>
-      <td></td>
-    `;
-    row.children[0].textContent = record.username;
-    row.children[1].querySelector("strong").textContent = `${record.origin} to ${record.destination}`;
-    row.children[1].querySelector("span").textContent = record.summary || "Assessment snapshot stored for review";
-    row.children[2].textContent = record.date;
-    row.children[3].textContent = tripTypeLabel(record.mode);
-    const risk = row.querySelector(".admin-risk");
-    risk.className = `admin-risk ${riskLevel.toLowerCase()}`;
-    risk.textContent = `${riskLevel}${record.riskPoints !== null && record.riskPoints !== undefined ? ` · ${record.riskPoints} pts` : ""}`;
-    row.children[5].textContent = formatNotificationTime(record.createdAt);
-    table.appendChild(row);
+  const visible = adminHistoryExpanded ? history : history.slice(0, ADMIN_HISTORY_PREVIEW_ROWS);
+  for (const record of visible) {
+    table.appendChild(adminAssessmentRow(record, record.createdAt, record.scoredBeforeFix));
+  }
+
+  if (note) {
+    const stale = history.filter((record) => record.scoredBeforeFix).length;
+    const shown = visible.length >= totalRecords
+      ? `Showing all ${totalRecords} checks.`
+      : `Showing the ${visible.length} most recent of ${totalRecords} checks.`;
+    note.textContent = stale ? `${shown} ${stale} were scored before the Oct 6 road-closure fix and may read too high.` : shown;
+  }
+  if (toggle) {
+    toggle.classList.toggle("hidden", history.length <= ADMIN_HISTORY_PREVIEW_ROWS);
+    toggle.textContent = adminHistoryExpanded ? "Show fewer" : `Show all ${history.length}`;
   }
 }
 
 function renderAdminMonitoring(monitoring) {
   const table = document.querySelector("#admin-monitoring");
-  const count = document.querySelector("#admin-monitoring-metric-count");
+  const note = document.querySelector("#admin-monitoring-note");
   if (!table) return;
 
   const metrics = monitoring.metrics || [];
-  if (count) count.textContent = metrics.length;
+  if (note) {
+    note.textContent = `Calls slower than ${monitoring.slowCallThresholdMs || 1500} ms count as slow. Counts reset when the app restarts.`;
+  }
   table.innerHTML = "";
   if (!metrics.length) {
     table.innerHTML = `<tr><td colspan="6">No API monitoring data yet.</td></tr>`;
@@ -181,15 +291,15 @@ function renderAdminMonitoring(monitoring) {
         <td></td>
         <td></td>
         <td></td>
-        <td></td>
-        <td></td>
+        <td class="admin-nowrap"></td>
+        <td class="admin-nowrap"></td>
       `;
       row.children[0].querySelector("strong").textContent = metric.operation;
       row.children[1].textContent = metric.calls;
       row.children[2].textContent = metric.failures;
       row.children[3].textContent = metric.slowCalls;
-      row.children[4].textContent = `${metric.averageDurationMs} ms`;
-      row.children[5].textContent = `${metric.maxDurationMs} ms`;
+      row.children[4].textContent = formatAdminDuration(metric.averageDurationMs);
+      row.children[5].textContent = formatAdminDuration(metric.maxDurationMs);
       table.appendChild(row);
     }
   }
@@ -199,9 +309,8 @@ function renderAdminMonitoring(monitoring) {
 
 function renderAdminMonitoringEvents(events) {
   const table = document.querySelector("#admin-monitoring-events");
-  const count = document.querySelector("#admin-monitoring-event-count");
   if (!table) return;
-  if (count) count.textContent = events.length;
+  setAdminCount("#admin-monitoring-event-count", events.length);
 
   table.innerHTML = "";
   if (!events.length) {
@@ -214,24 +323,48 @@ function renderAdminMonitoringEvents(events) {
     row.innerHTML = `
       <td><span class="admin-risk"></span></td>
       <td></td>
+      <td class="admin-nowrap"></td>
       <td></td>
-      <td></td>
-      <td></td>
+      <td class="admin-nowrap"></td>
     `;
     const type = row.querySelector(".admin-risk");
     type.className = `admin-risk ${event.type === "failure" ? "high" : "medium"}`;
-    type.textContent = event.type;
+    type.textContent = event.type === "failure" ? "Failed" : "Slow";
     row.children[1].textContent = event.operation;
-    row.children[2].textContent = `${event.durationMs} ms`;
+    row.children[2].textContent = formatAdminDuration(event.durationMs);
     row.children[3].textContent = event.error || "-";
-    row.children[4].textContent = formatNotificationTime(event.createdAt);
+    row.children[4].textContent = formatAdminTimestamp(event.createdAt);
     table.appendChild(row);
   }
+}
+
+function adminTripTypeLabel(mode) {
+  return { flight: "Flight", drive: "Driving", general: "Business" }[mode] || "Trip";
+}
+
+function formatAdminTravelDate(value) {
+  if (!value) return "-";
+  // Travel dates are calendar days, so read them as local dates rather than UTC midnight.
+  const [year, month, day] = value.split("-").map(Number);
+  return new Date(year, month - 1, day).toLocaleDateString([], { month: "short", day: "numeric" });
+}
+
+function formatAdminTimestamp(value) {
+  return new Date(value).toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+}
+
+function formatAdminDuration(ms) {
+  return ms >= 1000 ? `${(ms / 1000).toFixed(1)} s` : `${ms} ms`;
 }
 
 async function clearAssessmentHistory() {
   const button = document.querySelector("#clear-assessment-history");
   if (!button) return;
+
+  const count = document.querySelector("#admin-history-count")?.textContent || "all";
+  if (!window.confirm(`Delete ${count} assessment history records for every employee? This cannot be undone.`)) {
+    return;
+  }
 
   button.disabled = true;
   button.textContent = "Clearing...";

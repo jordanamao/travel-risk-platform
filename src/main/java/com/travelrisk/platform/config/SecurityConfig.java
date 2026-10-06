@@ -4,8 +4,11 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.travelrisk.platform.demo.DemoAccounts;
 import com.travelrisk.platform.ratelimit.RateLimitFilter;
 import com.travelrisk.platform.security.JwtAuthenticationFilter;
+import com.travelrisk.platform.service.UserProfileService;
 import com.travelrisk.platform.web.ApiErrorWriter;
 import java.util.regex.Pattern;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
 import org.springframework.beans.factory.annotation.Value;
@@ -24,12 +27,14 @@ import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
+import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.jwt.JwtEncoder;
 import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.security.oauth2.jwt.NimbusJwtEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.LoginUrlAuthenticationEntryPoint;
+import org.springframework.security.web.authentication.SavedRequestAwareAuthenticationSuccessHandler;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import com.nimbusds.jose.jwk.source.ImmutableSecret;
 import com.nimbusds.jose.proc.SecurityContext;
@@ -37,12 +42,15 @@ import com.nimbusds.jose.proc.SecurityContext;
 @Configuration
 @EnableMethodSecurity
 public class SecurityConfig {
+  private static final Logger log = LoggerFactory.getLogger(SecurityConfig.class);
+
   @Bean
   SecurityFilterChain securityFilterChain(
       HttpSecurity http,
       ObjectProvider<ClientRegistrationRepository> clientRegistrations,
       JwtAuthenticationFilter jwtAuthenticationFilter,
       RateLimitFilter rateLimitFilter,
+      ObjectProvider<UserProfileService> userProfiles,
       ObjectMapper objectMapper) throws Exception {
     ApiErrorWriter errorWriter = new ApiErrorWriter(objectMapper);
     http
@@ -78,9 +86,24 @@ public class SecurityConfig {
         .addFilterAfter(rateLimitFilter, JwtAuthenticationFilter.class);
 
     if (clientRegistrations.getIfAvailable() != null) {
+      SavedRequestAwareAuthenticationSuccessHandler toHome = new SavedRequestAwareAuthenticationSuccessHandler();
+      toHome.setDefaultTargetUrl("/");
+      toHome.setAlwaysUseDefaultTargetUrl(true);
       http.oauth2Login(oauth2 -> oauth2
           .loginPage("/login")
-          .defaultSuccessUrl("/", true));
+          .successHandler((request, response, authentication) -> {
+            // Google accounts are keyed by a numeric id; keep their name and email so
+            // the admin dashboard can show who they are.
+            UserProfileService profiles = userProfiles.getIfAvailable();
+            if (profiles != null && authentication.getPrincipal() instanceof OAuth2User user) {
+              try {
+                profiles.remember(authentication.getName(), user.getAttribute("email"), user.getAttribute("name"));
+              } catch (RuntimeException error) {
+                log.warn("Could not save profile for {}: {}", authentication.getName(), error.toString());
+              }
+            }
+            toHome.onAuthenticationSuccess(request, response, authentication);
+          }));
     }
 
     return http.build();
