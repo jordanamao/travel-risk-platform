@@ -5,3 +5,7 @@ target/
 .env
 .DS_Store
 *.log
+data/
+docs/
+.github/
+README.md

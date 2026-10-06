@@ -16,4 +16,4 @@ if [ -n "${DATABASE_URL:-}" ] && [ -z "${JDBC_DATABASE_URL:-}" ]; then
   esac
 fi
 
-exec java -jar app.jar
+exec java -jar app.jar "$@"
