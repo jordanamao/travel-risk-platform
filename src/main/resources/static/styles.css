@@ -188,9 +188,9 @@ body {
 
 .login-demo-note {
     display: grid;
-    gap: 10px;
-    margin-top: 16px;
-    padding: 14px 16px;
+    gap: 8px;
+    margin-top: 14px;
+    padding: 12px 14px;
     border: 1px solid var(--border-color);
     border-radius: var(--radius-sm);
     background: var(--bg-subtle);
@@ -236,7 +236,7 @@ body {
 .login-demo-creds {
     display: grid;
     grid-template-columns: auto minmax(0, 1fr);
-    gap: 4px 14px;
+    gap: 2px 14px;
     margin: 0;
 }
 
@@ -249,23 +249,16 @@ body {
     overflow-wrap: anywhere;
 }
 
-.login-demo-creds dd,
-.login-demo-hint code {
+.login-demo-creds dd {
     color: var(--text-main);
     font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
     font-size: 0.78rem;
 }
 
-.login-demo-hint,
-.login-demo-admin {
+.login-demo-hint {
     margin: 0;
     color: var(--text-muted);
-    font-size: 0.74rem;
-}
-
-.login-demo-admin {
-    padding-top: 8px;
-    border-top: 1px solid var(--border-color);
+    font-size: 0.72rem;
 }
 
 .login-form {
