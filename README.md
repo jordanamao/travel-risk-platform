@@ -123,8 +123,8 @@ While testing the live site, a **New York to San Francisco flight scored High (6
 
 - Live app: [https://travel-risk-platform.onrender.com](https://travel-risk-platform.onrender.com)
 - Login page: [https://travel-risk-platform.onrender.com/login](https://travel-risk-platform.onrender.com/login)
-- Employee demo logins: any `employee` plus a number at `email.com`, such as `employee1@email.com`, `employee5@email.com`, or `employee100@email.com` / `travel-risk-demo` (or click **Use demo account** on the login page)
-- Demo admin (read-only, sample data): `demo-admin@email.com` / `travel-risk-demo` (or click **Use demo admin** on the login page). See the operations manager's dashboard for the seeded demo employees; it can't change or delete anything.
+- Employee demo logins: any `employee` plus a number at `email.com`, such as `employee1@email.com`, `employee5@email.com`, or `employee100@email.com` / `travel-risk-demo` (or click **Use** next to Employee under Demo logins on the login page)
+- Demo admin (read-only, sample data): `demo-admin@email.com` / `travel-risk-demo` (or click **Use** next to Admin under Demo logins on the login page). See the operations manager's dashboard for the seeded demo employees; it can't change or delete anything.
 - Real admin login: set `TRAVEL_RISK_ADMIN_USERNAME` and `TRAVEL_RISK_ADMIN_PASSWORD` (never shared)
 
 The production deployment runs on Render with a managed Render Postgres database. Saved trips are persisted in the `saved_trips` table, and risk-change notifications are persisted in the `trip_notifications` table.
@@ -213,7 +213,7 @@ export OPENAI_MODEL=gpt-6-astra
 
 The dashboard is protected by Spring Security. Employee users can only see their own saved trips and notifications. Admin users can also see the company-wide dashboard, assessment history, and API monitoring views.
 
-For local demos, sign in as an employee with any `employee` plus a number at `email.com`, such as `employee1@email.com`, `employee5@email.com`, or `employee100@email.com` / `travel-risk-demo`. The **Use demo account** button on the login page fills these in for you. Configure an admin account with:
+For local demos, sign in as an employee with any `employee` plus a number at `email.com`, such as `employee1@email.com`, `employee5@email.com`, or `employee100@email.com` / `travel-risk-demo`. The **Use** button next to Employee under Demo logins on the login page fills these in for you. Configure an admin account with:
 
 ```bash
 export TRAVEL_RISK_EMPLOYEE_USERNAME_PATTERN='employee[0-9]+@email\.com'
