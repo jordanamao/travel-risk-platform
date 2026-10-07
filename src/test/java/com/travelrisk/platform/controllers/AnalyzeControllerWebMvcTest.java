@@ -9,6 +9,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.travelrisk.platform.TestAssessments;
 import com.travelrisk.platform.service.AssessmentHistoryService;
+import com.travelrisk.platform.service.RiskMemoryService;
 import com.travelrisk.platform.service.TravelRiskService;
 import java.util.List;
 import org.junit.jupiter.api.Test;
@@ -30,6 +31,9 @@ class AnalyzeControllerWebMvcTest {
 
   @MockitoBean
   private AssessmentHistoryService historyService;
+
+  @MockitoBean
+  private RiskMemoryService riskMemoryService;
 
   @MockitoBean
   private JwtDecoder jwtDecoder;

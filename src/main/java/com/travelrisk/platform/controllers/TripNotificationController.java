@@ -23,8 +23,8 @@ public class TripNotificationController {
   }
 
   @GetMapping("/api/notifications/channels")
-  public TripNotificationService.AlertChannelsResponse channels() {
-    return service.channels();
+  public TripNotificationService.AlertChannelsResponse channels(Principal principal) {
+    return service.channels(principal.getName());
   }
 
   // The demo admin is read-only, so it never sends mail.

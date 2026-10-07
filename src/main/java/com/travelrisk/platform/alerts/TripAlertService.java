@@ -34,6 +34,9 @@ import org.springframework.web.server.ResponseStatusException;
  * otherwise to the address Google sign-in gave for the trip's owner. Demo employee accounts have
  * no address, so without the override they never get mail.
  *
+ * <p>Each employee's profile decides which channels carry their alerts (email, Slack) and whether
+ * every level change counts or only moves into or out of High. The in-app notification is always kept.
+ *
  * <p>Sending happens on a background thread after the database transaction commits, so a slow or
  * failing mail server never delays or breaks a trip check.
  */
@@ -88,7 +91,21 @@ public class TripAlertService {
     if (!TripAlert.isMaterial(notification.getPreviousRiskLevel(), notification.getCurrentRiskLevel())) {
       return;
     }
-    dispatch(build(notification, trip));
+    AlertPreferences preferences = preferences(notification.getUsername());
+    if (!preferences.wants(notification.getPreviousRiskLevel(), notification.getCurrentRiskLevel())) {
+      return;
+    }
+    dispatch(build(notification, trip), preferences);
+  }
+
+  /** The configured channels this employee has left switched on in their profile. */
+  public List<String> channelsFor(String username) {
+    AlertPreferences preferences = preferences(username);
+    return channels.stream()
+        .filter(TripAlertChannel::configured)
+        .filter(preferences::allows)
+        .map(TripAlertChannel::name)
+        .toList();
   }
 
   /**
@@ -97,10 +114,12 @@ public class TripAlertService {
    */
   public List<String> resend(TripNotification notification, SavedTrip trip) {
     TripAlert alert = build(notification, trip);
-    List<String> targets = targets(alert).stream().map(TripAlertChannel::name).toList();
+    AlertPreferences preferences = preferences(notification.getUsername());
+    List<String> targets = targets(alert, preferences).stream().map(TripAlertChannel::name).toList();
     if (targets.isEmpty()) {
-      throw new ResponseStatusException(HttpStatus.CONFLICT,
-          "No alert channel is set up. Add email or Slack settings to send alerts outside the app.");
+      throw new ResponseStatusException(HttpStatus.CONFLICT, configuredChannels().isEmpty()
+          ? "No alert channel is set up. Add email or Slack settings to send alerts outside the app."
+          : "Outside alerts are turned off in your profile. Turn email or Slack back on to send this alert.");
     }
     Instant now = clock.instant();
     Instant previous = lastResend.get(notification.getId());
@@ -109,7 +128,7 @@ public class TripAlertService {
           "This alert was just sent. Try again in a couple of minutes.");
     }
     lastResend.put(notification.getId(), now);
-    dispatch(alert);
+    dispatch(alert, preferences);
     return targets;
   }
 
@@ -119,12 +138,12 @@ public class TripAlertService {
     return TripAlert.from(notification, mode, reason, appUrl, recipient(notification.getUsername()));
   }
 
-  private List<TripAlertChannel> targets(TripAlert alert) {
-    return channels.stream().filter(channel -> channel.accepts(alert)).toList();
+  private List<TripAlertChannel> targets(TripAlert alert, AlertPreferences preferences) {
+    return channels.stream().filter(channel -> channel.accepts(alert) && preferences.allows(channel)).toList();
   }
 
-  private void dispatch(TripAlert alert) {
-    List<TripAlertChannel> targets = targets(alert);
+  private void dispatch(TripAlert alert, AlertPreferences preferences) {
+    List<TripAlertChannel> targets = targets(alert, preferences);
     if (targets.isEmpty()) {
       return;
     }
@@ -155,6 +174,30 @@ public class TripAlertService {
       return emailOverride;
     }
     return profiles.findById(username).map(UserProfile::getEmail).orElse(null);
+  }
+
+  private AlertPreferences preferences(String username) {
+    return profiles.findById(username)
+        .map(profile -> new AlertPreferences(profile.isAlertEmail(), profile.isAlertSlack(), profile.getAlertMinLevel()))
+        .orElse(AlertPreferences.DEFAULTS);
+  }
+
+  /** An employee's alert settings; anyone without a saved profile gets every channel and every level change. */
+  record AlertPreferences(boolean email, boolean slack, String minLevel) {
+    static final AlertPreferences DEFAULTS = new AlertPreferences(true, true, "any");
+
+    boolean allows(TripAlertChannel channel) {
+      return switch (channel.name().toLowerCase(java.util.Locale.ROOT)) {
+        case "email" -> email;
+        case "slack" -> slack;
+        default -> true;
+      };
+    }
+
+    /** "high" keeps only moves into or out of High, e.g. Medium to High or High to Low. */
+    boolean wants(String previousLevel, String currentLevel) {
+      return !"high".equals(minLevel) || "High".equals(previousLevel) || "High".equals(currentLevel);
+    }
   }
 
   /** The highest-scoring signal's message, e.g. "Destination FAA airport status has FAA NAS ground stop at MCO." */

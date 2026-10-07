@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Your Profile · Travel Risk Platform</title>
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body class="profile-body">
+<header class="app-nav">
+  <div>
+    <p class="eyebrow">Company access</p>
+    <strong>Travel Risk Platform</strong>
+  </div>
+  <div class="app-nav-actions">
+    <a class="nav-link" href="/">Risk checker</a>
+    <form class="logout-form" method="post" action="/logout">
+      <button type="submit">Sign out</button>
+    </form>
+  </div>
+</header>
+
+<main class="profile-shell">
+  <section class="profile-intro">
+    <p class="eyebrow">Your profile</p>
+    <h1 id="profile-name">Your profile</h1>
+    <p id="profile-account" class="section-note"></p>
+    <p class="lede">These settings personalize your results. The company risk level never changes; your tolerance and history add a "For you" view on top of it.</p>
+  </section>
+
+  <form id="profile-form" class="profile-form" novalidate>
+    <section class="profile-card">
+      <h2>Travel preferences</h2>
+      <div class="profile-grid">
+        <label>
+          Home city
+          <input name="homeCity" list="profile-cities" placeholder="e.g. Dallas, TX" maxlength="120" autocomplete="off" />
+          <span class="field-note">Pre-fills the origin when you open the risk checker.</span>
+        </label>
+        <label>
+          Usual trip type
+          <select name="preferredMode">
+            <option value="">No preference</option>
+            <option value="flight">Flight</option>
+            <option value="drive">Driving</option>
+            <option value="general">Business (mixed)</option>
+          </select>
+        </label>
+      </div>
+    </section>
+
+    <section class="profile-card">
+      <h2>Risk tolerance</h2>
+      <p class="section-note">Where trips get flagged for you. Company policy and admin views still use the company level.</p>
+      <div id="tolerance-options" class="tolerance-options" role="radiogroup" aria-label="Risk tolerance"></div>
+    </section>
+
+    <section class="profile-card">
+      <h2>Frequent routes</h2>
+      <p class="section-note">Pinned routes appear above the trip form for a one-click check. Up to 5.</p>
+      <ul id="frequent-route-list" class="frequent-route-list"></ul>
+      <div class="frequent-route-add">
+        <input id="route-origin" list="profile-cities" placeholder="Origin" maxlength="120" autocomplete="off" aria-label="Route origin" />
+        <input id="route-destination" list="profile-cities" placeholder="Destination" maxlength="120" autocomplete="off" aria-label="Route destination" />
+        <select id="route-mode" aria-label="Route trip type">
+          <option value="flight">Flight</option>
+          <option value="drive">Driving</option>
+          <option value="general">Business</option>
+        </select>
+        <button type="button" id="add-route" class="secondary-button">Add route</button>
+      </div>
+      <div id="route-suggestions" class="route-suggestions hidden"></div>
+    </section>
+
+    <section class="profile-card">
+      <h2>Alerts</h2>
+      <p class="section-note">Saved trips are re-checked on a schedule. Every change shows up in the app; choose what also reaches you outside it.</p>
+      <div class="profile-checks">
+        <label class="check-row"><input type="checkbox" name="alertEmail" /> <span>Email <small id="email-note"></small></span></label>
+        <label class="check-row"><input type="checkbox" name="alertSlack" /> <span>Slack <small id="slack-note"></small></span></label>
+      </div>
+      <fieldset class="profile-radios">
+        <legend>Send an outside alert when</legend>
+        <label class="check-row"><input type="radio" name="alertMinLevel" value="any" /> <span>Any level changes (for example Low to Medium)</span></label>
+        <label class="check-row"><input type="radio" name="alertMinLevel" value="high" /> <span>A trip becomes High or stops being High</span></label>
+      </fieldset>
+    </section>
+
+    <section class="profile-card">
+      <h2>Your risk memory</h2>
+      <p id="memory-summary" class="section-note">Loading...</p>
+      <div class="admin-table-shell">
+        <table class="admin-table memory-table">
+          <thead>
+          <tr>
+            <th>Route</th>
+            <th>Checks</th>
+            <th>Medium or High</th>
+            <th>Latest</th>
+          </tr>
+          </thead>
+          <tbody id="memory-routes"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <div class="profile-actions">
+      <p id="profile-status" class="profile-status" role="status"></p>
+      <button type="submit" id="save-profile">Save profile</button>
+    </div>
+  </form>
+</main>
+
+<datalist id="profile-cities"></datalist>
+<script src="/app-state.js?v=profiles"></script>
+<script src="/api.js?v=profiles"></script>
+<script src="/profile.js?v=profiles"></script>
+</body>
+</html>

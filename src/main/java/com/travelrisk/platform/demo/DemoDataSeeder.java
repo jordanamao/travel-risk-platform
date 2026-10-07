@@ -3,12 +3,15 @@ package com.travelrisk.platform.demo;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.travelrisk.platform.database.entities.AssessmentHistory;
+import com.travelrisk.platform.database.entities.FrequentRoute;
 import com.travelrisk.platform.database.entities.SavedTrip;
 import com.travelrisk.platform.database.entities.TripNotification;
+import com.travelrisk.platform.database.entities.UserProfile;
 import com.travelrisk.platform.monitoring.SourceCheck;
 import com.travelrisk.platform.repository.AssessmentHistoryRepository;
 import com.travelrisk.platform.repository.SavedTripRepository;
 import com.travelrisk.platform.repository.TripNotificationRepository;
+import com.travelrisk.platform.repository.UserProfileRepository;
 import com.travelrisk.platform.service.TravelRiskService;
 import com.travelrisk.platform.service.TravelRiskService.Assessment;
 import com.travelrisk.platform.service.TravelRiskService.Evidence;
@@ -32,12 +35,14 @@ import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Loads a believable set of employees, saved trips (Low, Medium and High), check history and one
- * unread risk-change alert, so the public demo never opens on empty tables.
+ * unread risk-change alert, so the public demo never opens on empty tables. Demo employees also get
+ * a profile (home city, frequent routes, risk tolerance) and a few older checks, so the result page's
+ * "For you" memory has something to remember.
  *
  * <p>Off unless {@code DEMO_DATA_ENABLED=true} or the {@code demo} profile is active. On each start
  * it replaces only rows it created earlier (tagged by {@link #MARKER} in the stored assessment) and
  * dates trips relative to today, so they stay inside the 15-day forecast window. Rows employees
- * created themselves, or demo trips they re-checked, are never touched.
+ * created themselves, demo trips they re-checked, and profiles that already exist are never touched.
  */
 @Component
 @ConditionalOnProperty(name = "travel-risk.demo-data.enabled", havingValue = "true")
@@ -48,16 +53,19 @@ public class DemoDataSeeder implements ApplicationRunner {
   private final SavedTripRepository tripRepository;
   private final AssessmentHistoryRepository historyRepository;
   private final TripNotificationRepository notificationRepository;
+  private final UserProfileRepository profileRepository;
   private final ObjectMapper objectMapper;
 
   public DemoDataSeeder(
       SavedTripRepository tripRepository,
       AssessmentHistoryRepository historyRepository,
       TripNotificationRepository notificationRepository,
+      UserProfileRepository profileRepository,
       ObjectMapper objectMapper) {
     this.tripRepository = tripRepository;
     this.historyRepository = historyRepository;
     this.notificationRepository = notificationRepository;
+    this.profileRepository = profileRepository;
     this.objectMapper = objectMapper;
   }
 
@@ -92,8 +100,59 @@ public class DemoDataSeeder implements ApplicationRunner {
     Assessment adHoc = new DemoTrip("employee5@email.com", "Chicago, IL", "Boston, MA", 1, "flight", "KORD", "KBOS",
         List.of(), null).assessment(today);
     historyRepository.save(new AssessmentHistory("employee5@email.com", adHoc, json(adHoc), now.minus(Duration.ofHours(6))));
-    log.info("demo_data_seeded savedTrips={}", trips);
+
+    for (PastCheck check : pastChecks()) {
+      Assessment past = check.trip().assessment(today.minusDays(check.daysAgo()));
+      historyRepository.save(new AssessmentHistory(check.trip().username(), past, json(past),
+          now.minus(Duration.ofDays(check.daysAgo()))));
+    }
+    int profiles = 0;
+    for (DemoProfile demo : demoProfiles()) {
+      if (profileRepository.existsById(demo.username())) continue;
+      UserProfile profile = new UserProfile(demo.username());
+      profile.updateSettings(demo.homeCity(), demo.preferredMode(), demo.riskTolerance(), demo.frequentRoutes(),
+          true, true, demo.alertMinLevel());
+      profileRepository.save(profile);
+      profiles++;
+    }
+    log.info("demo_data_seeded savedTrips={} profiles={}", trips, profiles);
   }
+
+  /** Older checks that give demo employees a track record on their usual routes. */
+  static List<PastCheck> pastChecks() {
+    DemoSignal stormAtMco = new DemoSignal("official-alert", "high", "Destination NWS alert",
+        "Destination NWS has active NWS alert: Severe Thunderstorm Warning",
+        "Severe Thunderstorm Warning for Orange County, FL");
+    DemoSignal ifrAtMco = new DemoSignal("aviation-weather", "medium", "Destination airport weather",
+        "Destination airport weather near KMCO: MVFR conditions.", "KMCO 2053Z 22015G25KT 4SM TSRA BKN015");
+    return List.of(
+        new PastCheck(new DemoTrip("employee1@email.com", "Dallas, TX", "Orlando, FL", 0, "flight", "KDFW", "KMCO",
+            List.of(stormAtMco, ifrAtMco), null), 19),
+        new PastCheck(new DemoTrip("employee1@email.com", "Orlando, FL", "Dallas, TX", 0, "flight", "KMCO", "KDFW",
+            List.of(ifrAtMco), null), 16),
+        new PastCheck(new DemoTrip("employee1@email.com", "New York, NY", "Chicago, IL", 0, "flight", "KJFK", "KORD",
+            List.of(), null), 24),
+        new PastCheck(new DemoTrip("employee1@email.com", "New York, NY", "Chicago, IL", 0, "flight", "KJFK", "KORD",
+            List.of(), null), 9),
+        new PastCheck(new DemoTrip("employee2@email.com", "Boston, MA", "Washington, DC", 0, "flight", "KBOS", "KDCA",
+            List.of(), null), 14));
+  }
+
+  static List<DemoProfile> demoProfiles() {
+    return List.of(
+        new DemoProfile("employee1@email.com", "Dallas, TX", "flight", "cautious", "any", List.of(
+            new FrequentRoute("Dallas, TX", "Orlando, FL", "flight"),
+            new FrequentRoute("New York, NY", "Chicago, IL", "flight"))),
+        new DemoProfile("employee2@email.com", "Boston, MA", "flight", "balanced", "any", List.of(
+            new FrequentRoute("Boston, MA", "Washington, DC", "flight"))),
+        new DemoProfile("employee3@email.com", "Miami, FL", "flight", "flexible", "high", List.of(
+            new FrequentRoute("Miami, FL", "Atlanta, GA", "flight"))));
+  }
+
+  record PastCheck(DemoTrip trip, int daysAgo) {}
+
+  record DemoProfile(String username, String homeCity, String preferredMode, String riskTolerance,
+      String alertMinLevel, List<FrequentRoute> frequentRoutes) {}
 
   private void removePreviousSeed() {
     for (SavedTrip trip : tripRepository.findByAssessmentJsonContaining(MARKER)) {

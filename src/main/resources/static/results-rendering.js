@@ -42,6 +42,7 @@ function renderResults(data) {
 
   renderEvidence(data);
   renderPolicyResult(data);
+  renderPersonalResult(data);
 
   loadAlternatives(data);
   renderDisruptionCost(data);
