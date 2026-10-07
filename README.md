@@ -107,8 +107,7 @@ While testing the live site, a **New York to San Francisco flight scored High (6
 - **8** live checks per assessment, run in parallel, with per-source status shown on every result.
 - **3-level** risk score with points, confidence, evidence and a recommendation.
 - **60 → 0 points** on the NY to SF flight after the road-closure fix (High → Low), with the driving case still correctly flagged Medium.
-- **75** automated tests run in CI on every push and pull request; `main` requires Maven tests and a Docker build to pass before merge.
-- **78** automated tests run in CI on every push and pull request; `main` requires Maven tests and a Docker build to pass before merge.
+- **93** automated tests run in CI on every push and pull request; `main` requires Maven tests and a Docker build to pass before merge.
 
 - Deployed on Render with managed Postgres and three Flyway-managed tables, auto-deployed from `main`.
 
@@ -195,10 +194,7 @@ cd travel-risk-platform
 mvn test
 ```
 
-Expected result: `Tests run: 75, Failures: 0, Errors: 0` and `BUILD SUCCESS` (verified on a fresh clone of `main` on 2026-10-06).
-
-Expected result: `Tests run: 78, Failures: 0, Errors: 0` and `BUILD SUCCESS` (verified on a fresh clone of `main` on 2026-10-06).
-
+Expected result: `Tests run: 93, Failures: 0, Errors: 0` and `BUILD SUCCESS` (verified on a fresh clone of `main` on 2026-10-07).
 
 **Health check:** `GET /health` returns `{"status":"UP"}`; Render uses it to decide when a new deploy is live.
 
