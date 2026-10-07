@@ -6,7 +6,7 @@ A talk track for a screen recording that walks an **operations manager** through
 
 - [ ] Open the [live app](https://travel-risk-platform.onrender.com) once a few minutes early so Render wakes up and the first check is fast.
 - [ ] Pick tonight's risky route. Check the [NWS alerts map](https://www.weather.gov/) or [FAA NAS status](https://nasstatus.faa.gov/) for a city with storms or a ground stop, and run it once to confirm it scores **Medium or High**. Have a calm route ready too (for example New York, NY to San Francisco, CA, flight).
-- [ ] Use only the public demo accounts on camera: the employee demo login and the **read-only demo admin** (`demo-admin@email.com` / `travel-risk-demo`, or **Use demo admin** on the login page). Never sign in with your real admin account while recording.
+- [ ] Use only the public demo accounts on camera: the employee demo login and the **read-only demo admin** (`demo-admin@email.com` / `travel-risk-demo`, or **Use** next to Admin under Demo logins on the login page). Never sign in with your real admin account while recording.
 - [ ] Sign in as the demo admin in a second browser profile or private window before you start, and check that the seeded demo trips show on the dashboard.
 - [ ] Download a fresh sample itinerary from *Your trips* → **Import** → Sample: CSV (the sample is dated from today, so its trips are inside the forecast window). Save it to your desktop as `acme-trips.csv`.
 - [ ] Browser at 100% zoom, notifications off, bookmarks bar hidden.
@@ -21,7 +21,7 @@ A talk track for a screen recording that walks an **operations manager** through
 
 ### 0:15 to 0:50, a risky trip
 
-*Click **Use demo account**, sign in, enter the risky route and date, choose Flight, click **Assess trip risk**.*
+*Click **Use** next to Employee under Demo logins, sign in, enter the risky route and date, choose Flight, click **Assess trip risk**.*
 
 > "I'm an employee flying [origin] to [destination] on [date]. In a few seconds the app has checked eight live sources in parallel: forecasts at both ends and the midpoint, National Weather Service alerts, airport weather, FAA delays and ground stops, and road closures."
 

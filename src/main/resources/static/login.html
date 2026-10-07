@@ -54,31 +54,21 @@
     <a class="sso-button" href="/oauth2/authorization/google">Continue with Google</a>
 
     <section class="login-demo-note" aria-labelledby="demo-heading">
-      <div class="login-demo-header">
-        <h3 id="demo-heading">Demo account</h3>
-        <button type="button" class="login-demo-fill" data-demo-fill>Use demo account</button>
+      <h3 id="demo-heading">Demo logins</h3>
+      <div class="login-demo-row">
+        <div class="login-demo-account">
+          <span class="login-demo-role">Employee</span>
+          <span class="login-demo-creds"><code data-demo-username>employee1@email.com</code> · <code data-demo-password>travel-risk-demo</code></span>
+        </div>
+        <button type="button" class="login-demo-fill" data-demo-fill aria-label="Use demo employee account">Use</button>
       </div>
-      <dl class="login-demo-creds">
-        <dt>Email</dt>
-        <dd data-demo-username>employee1@email.com</dd>
-        <dt>Password</dt>
-        <dd data-demo-password>travel-risk-demo</dd>
-      </dl>
-      <p class="login-demo-hint">Any employee number works. Admin uses the configured account.</p>
-    </section>
-
-    <section class="login-demo-note hidden" aria-labelledby="demo-admin-heading" data-demo-admin>
-      <div class="login-demo-header">
-        <h3 id="demo-admin-heading">Demo admin (read-only)</h3>
-        <button type="button" class="login-demo-fill" data-demo-admin-fill>Use demo admin</button>
+      <div class="login-demo-row hidden" data-demo-admin>
+        <div class="login-demo-account">
+          <span class="login-demo-role">Admin <span class="login-demo-tag">read-only</span></span>
+          <span class="login-demo-creds"><code data-demo-admin-username></code> · <code data-demo-admin-password></code></span>
+        </div>
+        <button type="button" class="login-demo-fill" data-demo-admin-fill aria-label="Use demo admin account">Use</button>
       </div>
-      <dl class="login-demo-creds">
-        <dt>Email</dt>
-        <dd data-demo-admin-username></dd>
-        <dt>Password</dt>
-        <dd data-demo-admin-password></dd>
-      </dl>
-      <p class="login-demo-hint">Opens the admin dashboard for demo accounts only. It can't change or delete anything.</p>
     </section>
   </section>
 </main>

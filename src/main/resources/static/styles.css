@@ -217,36 +217,62 @@ body {
 
 .login-demo-note {
     display: grid;
-    gap: 8px;
-    margin-top: 14px;
-    padding: 12px 14px;
+    gap: 6px;
+    margin-top: 12px;
+    padding: 8px 12px;
     border: 1px solid var(--border-color);
     border-radius: var(--radius-sm);
     background: var(--bg-subtle);
-    font-size: 0.8rem;
-    line-height: 1.4;
+    font-size: 0.76rem;
+    line-height: 1.35;
 }
 
-.login-demo-header {
+.login-demo-note h3 {
+    margin: 0;
+    color: var(--text-muted);
+    font-size: 0.66rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.login-demo-row {
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 10px;
 }
 
-.login-demo-header h3 {
-    margin: 0;
+.login-demo-account {
+    display: grid;
+    min-width: 0;
+}
+
+.login-demo-role {
+    color: var(--text-main);
+    font-weight: 700;
+}
+
+.login-demo-tag {
     color: var(--text-muted);
-    font-size: 0.7rem;
-    font-weight: 800;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
+    font-weight: 500;
+}
+
+.login-demo-creds {
+    overflow-wrap: anywhere;
+}
+
+.login-demo-creds code {
+    color: var(--text-main);
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 0.72rem;
 }
 
 .login-demo-fill {
+    flex: none;
     width: auto;
     min-height: 0;
-    padding: 5px 10px;
+    padding: 4px 12px;
     border: 1px solid var(--border-color);
     border-radius: 999px;
     background: var(--bg-card);
@@ -260,34 +286,6 @@ body {
 .login-demo-fill:hover {
     border-color: var(--accent);
     background: var(--bg-card);
-}
-
-.login-demo-creds {
-    display: grid;
-    grid-template-columns: auto minmax(0, 1fr);
-    gap: 2px 14px;
-    margin: 0;
-}
-
-.login-demo-creds dt {
-    color: var(--text-muted);
-}
-
-.login-demo-creds dd {
-    margin: 0;
-    overflow-wrap: anywhere;
-}
-
-.login-demo-creds dd {
-    color: var(--text-main);
-    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-    font-size: 0.78rem;
-}
-
-.login-demo-hint {
-    margin: 0;
-    color: var(--text-muted);
-    font-size: 0.72rem;
 }
 
 .login-form {
