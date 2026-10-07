@@ -48,6 +48,7 @@
       <small data-stat-note="slowOrFailed">&nbsp;</small>
     </button>
   </div>
+  <section id="admin-cost-at-risk" class="admin-cost-at-risk" aria-label="Money at risk"></section>
   <details class="admin-section" data-section="saved-trips" open>
     <summary>
       <h3>Employee saved trips</h3>
@@ -63,12 +64,13 @@
           <th>Type</th>
           <th>Risk</th>
           <th>Policy</th>
+          <th title="Estimated cost of disruption if the trip goes ahead unchanged">Est. cost</th>
           <th>Updated</th>
         </tr>
         </thead>
         <tbody id="admin-trips">
         <tr>
-          <td colspan="7">Loading admin dashboard...</td>
+          <td colspan="8">Loading admin dashboard...</td>
         </tr>
         </tbody>
       </table>
@@ -257,6 +259,7 @@
             <h3>Notifications</h3>
             <span id="notification-count">0 unread</span>
           </div>
+          <p id="alert-channels" class="alert-channels hidden"></p>
           <div id="notifications" class="notifications-list">
             <p class="field-note">No risk-change alerts yet.</p>
           </div>
@@ -401,6 +404,8 @@
         </div>
       </section>
 
+      <section id="disruption-cost" class="disruption-cost-section hidden" aria-label="Estimated cost of disruption" aria-live="polite"></section>
+
       <section class="scenario-section">
         <div>
           <h3>Compare safer dates</h3>
@@ -493,6 +498,10 @@
 <script src="/admin-dashboard.js?v=admin-policy"></script>
 <script src="/results-rendering.js?v=alternatives"></script>
 <script src="/alternatives.js?v=alternatives"></script>
+<script src="/disruption-cost.js?v=disruption-cost"></script>
+<script src="/admin-dashboard.js?v=disruption-cost"></script>
+<script src="/results-rendering.js?v=disruption-cost"></script>
+
 <script src="/app.js?v=admin-policy"></script>
 </body>
 </html>

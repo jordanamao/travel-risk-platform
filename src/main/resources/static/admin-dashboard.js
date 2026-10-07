@@ -69,7 +69,7 @@ async function loadAdminDashboard() {
   const monitoringEventsTable = document.querySelector("#admin-monitoring-events");
   if (!table) return;
 
-  table.innerHTML = `<tr><td colspan="7">Loading admin dashboard...</td></tr>`;
+  table.innerHTML = `<tr><td colspan="8">Loading admin dashboard...</td></tr>`;
   if (historyTable) {
     historyTable.innerHTML = `<tr><td colspan="6">Loading assessment history...</td></tr>`;
   }
@@ -96,7 +96,7 @@ async function loadAdminDashboard() {
     applyReadOnlyMode(Boolean(data.readOnly));
     renderAdminDashboard(data);
   } catch (error) {
-    table.innerHTML = `<tr><td colspan="7">${error.message}</td></tr>`;
+    table.innerHTML = `<tr><td colspan="8">${error.message}</td></tr>`;
     if (historyTable) {
       historyTable.innerHTML = `<tr><td colspan="6">${error.message}</td></tr>`;
     }
@@ -144,7 +144,7 @@ function renderAdminDashboard(data) {
   setAdminCount("#admin-trip-count", trips.length);
 
   if (!trips.length) {
-    table.innerHTML = `<tr><td colspan="7">No employee trips have been saved yet.</td></tr>`;
+    table.innerHTML = `<tr><td colspan="8">No employee trips have been saved yet.</td></tr>`;
   }
 
   for (const trip of trips) {
@@ -152,8 +152,10 @@ function renderAdminDashboard(data) {
     const policyCell = document.createElement("td");
     policyCell.appendChild(policyBadge(trip.policy));
     row.insertBefore(policyCell, row.lastElementChild);
+    row.insertBefore(adminCostCell(trip.cost), row.lastElementChild);
     table.appendChild(row);
   }
+  renderAdminCostAtRisk(data.costAtRisk);
 
   adminHistoryExpanded = false;
   renderAdminHistory(data.history || [], stats.historyRecords);
