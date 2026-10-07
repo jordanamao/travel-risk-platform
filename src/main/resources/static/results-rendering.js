@@ -14,6 +14,7 @@ function renderResults(data) {
       `${friendlyDate(data.input.date)} · ${tripTypeLabel(data.input.mode)}`;
   document.querySelector("#risk-summary").textContent = data.summary;
   document.querySelector("#recommendation").textContent = data.recommendation;
+  renderTripBrief(data);
 
   const header = document.querySelector(".risk-header");
   header.className = `risk-header ${level}`;

@@ -23,6 +23,8 @@ public class CacheConfig {
         .disableCachingNullValues()
         .serializeValuesWith(RedisSerializationContext.SerializationPair.fromSerializer(
             new GenericJackson2JsonRedisSerializer(objectMapper)));
-    return builder -> builder.withCacheConfiguration("tripAssessments", configuration);
+    return builder -> builder
+        .withCacheConfiguration("tripAssessments", configuration)
+        .withCacheConfiguration("tripBriefs", configuration);
   }
 }
