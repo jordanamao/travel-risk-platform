@@ -138,6 +138,39 @@ class TripAlertServiceTest {
   }
 
   @Test
+  void profileSettingsChooseTheChannelsAndWhichLevelChangesGoOut() throws Exception {
+    TripAlertService service = service(List.of(email, slack), "me@example.test");
+    UserProfile profile = new UserProfile("employee1@email.com");
+    profile.updateSettings(null, null, "balanced", List.of(), false, true, "high");
+    when(profiles.findById("employee1@email.com")).thenReturn(Optional.of(profile));
+
+    // Only High counts for this employee, so Low to Medium stays in the app.
+    service.onRiskChange(notification("Low", 1, "Medium", 5), trip("Medium", 5));
+    assertThat(slackAlerts).isEmpty();
+
+    // Medium to High goes out, but only to Slack: email is switched off.
+    service.onRiskChange(notification("Medium", 5, "High", 12), trip("High", 12));
+    assertThat(slackAlerts).hasSize(1);
+    assertThat(sentEmails).isEmpty();
+    assertThat(service.channelsFor("employee1@email.com")).containsExactly("Slack");
+  }
+
+  @Test
+  void resendExplainsWhenTheProfileTurnedEveryChannelOff() throws Exception {
+    UserProfile profile = new UserProfile("employee1@email.com");
+    profile.updateSettings(null, null, "balanced", List.of(), false, false, "any");
+    when(profiles.findById("employee1@email.com")).thenReturn(Optional.of(profile));
+    TripNotification notification = notification("Medium", 5, "High", 12);
+    ReflectionTestUtils.setField(notification, "id", 8L);
+
+    assertThatThrownBy(() -> service(List.of(email, slack), "me@example.test").resend(notification, trip("High", 12)))
+        .isInstanceOfSatisfying(ResponseStatusException.class, error -> {
+          assertThat(error.getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
+          assertThat(error.getReason()).contains("turned off in your profile");
+        });
+  }
+
+  @Test
   void emailEscapesTripText() {
     TripAlert alert = new TripAlert("u", "<b>Dallas</b>", "Orlando", java.time.LocalDate.parse("2026-10-09"), "flight",
         "Medium", "High", 5, 12, "Storm & <script>", "", "me@example.test");

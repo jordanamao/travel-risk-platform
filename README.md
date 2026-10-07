@@ -41,6 +41,7 @@ The information to prevent most of this is public, but it's spread across half a
 - **Saved trips and alerts.** Employees save trips; a recheck compares the new score with the saved one and creates a notification when the risk level moves.
 - **An admin dashboard** with the money at risk across upcoming trips, every employee's trips with their policy result and estimated cost, high-risk counts, recent assessments, and API monitoring (call counts, failures, slow calls).
 
+- **Profiles and personal risk memory.** Each employee has a profile with a home city, usual trip type, pinned frequent routes, a risk tolerance (Cautious, Balanced, Flexible) and alert settings. Every result adds a **For you** card built from their own past checks, saved trips and tolerance: "Above your comfort line" for a cautious traveler on a busy Low day, or "Risky for you before" when this route came back Medium or High for them in the last 90 days. The company score itself never changes.
 - **Saved trips and alerts where people already are.** Employees save trips; a scheduled recheck compares the new score with the saved one and, when the risk level moves (say Medium to High), raises an in-app notification and sends the same alert by email and to Slack with the route, the change, the main reason, and a link back.
 - **An admin dashboard** with every employee's trips and their policy result, high-risk counts, recent assessments, and API monitoring (call counts, failures, slow calls).
 - **Production basics:** Google OAuth plus JWT for API clients, role-based access (employees only see their own data, `/api/admin/**` is admin-only), Postgres with Flyway migrations, caching, per-user rate limiting, a consistent `{"error": "..."}` error contract, health checks, CI on every push, and auto-deploy to Render from `main`.
@@ -66,7 +67,7 @@ flowchart LR
     end
     TRS --> SCORE[Signals → score<br/>Low / Medium / High]
     SCORE --> SUM[Summary + recommendation<br/>local or OpenAI]
-    C --> DB[(Postgres<br/>saved_trips, trip_notifications,<br/>assessment_history)]
+    C --> DB[(Postgres<br/>saved_trips, trip_notifications,<br/>assessment_history, user_profiles)]
     MON[API monitoring aspect] -.-> TRS
     IMP[Itinerary import<br/>CSV or .ics] --> C
     C --> POL[Travel policy<br/>YAML rules]
@@ -107,9 +108,9 @@ While testing the live site, a **New York to San Francisco flight scored High (6
 - **8** live checks per assessment, run in parallel, with per-source status shown on every result.
 - **3-level** risk score with points, confidence, evidence and a recommendation.
 - **60 → 0 points** on the NY to SF flight after the road-closure fix (High → Low), with the driving case still correctly flagged Medium.
-- **93** automated tests run in CI on every push and pull request; `main` requires Maven tests and a Docker build to pass before merge.
+- **103** automated tests run in CI on every push and pull request; `main` requires Maven tests and a Docker build to pass before merge.
 
-- Deployed on Render with managed Postgres and three Flyway-managed tables, auto-deployed from `main`.
+- Deployed on Render with managed Postgres and five Flyway-managed tables, auto-deployed from `main`.
 
 ### Rolling it out at a company
 
@@ -138,6 +139,18 @@ The production deployment runs on Render with a managed Render Postgres database
 ### Risk Result
 
 ![Risk result page](docs/screenshots/risk-result.png)
+
+### For You (Personal Risk Memory)
+
+The company result plus what this employee's own history and risk tolerance say about it (`personal` in `GET /api/analyze`).
+
+![For you card: above a cautious traveler's comfort line, with this route's track record](docs/screenshots/risk-memory.png)
+
+### Profile
+
+Preferences, frequent routes, risk tolerance, alert settings and the routes the app remembers (`/profile`).
+
+![Profile page](docs/screenshots/profile.png)
 
 ### What Should I Do Instead?
 
@@ -194,7 +207,7 @@ cd travel-risk-platform
 mvn test
 ```
 
-Expected result: `Tests run: 93, Failures: 0, Errors: 0` and `BUILD SUCCESS` (verified on a fresh clone of `main` on 2026-10-07).
+Expected result: `Tests run: 103, Failures: 0, Errors: 0` and `BUILD SUCCESS` (verified on a fresh clone of `main` on 2026-10-07).
 
 **Health check:** `GET /health` returns `{"status":"UP"}`; Render uses it to decide when a new deploy is live.
 
@@ -394,6 +407,25 @@ Saved trip endpoints:
 - `POST /api/notifications/{id}/send` sends one notification to email/Slack now (`409` when no channel is set up, `429` if repeated within 2 minutes).
 - `POST /api/trips/import` imports a CSV or .ics itinerary (see [Itinerary Import And Travel Policy](#itinerary-import-and-travel-policy)).
 
+## Profiles And Risk Memory
+
+Every signed-in employee has a profile at `/profile` (`GET` / `PUT /api/profile`, stored in `user_profiles` and `user_frequent_routes`):
+
+- **Travel preferences:** home city (pre-fills the origin) and usual trip type.
+- **Frequent routes:** up to 5 pinned routes, shown as one-click checks above the trip form. Routes checked at least twice are suggested from history.
+- **Risk tolerance:** where trips are flagged *for this employee*. Cautious flags from 3 points, Balanced from 5 (the company's Medium line), Flexible from 10 (High only). Policy, alerts and the admin dashboard keep using the company level.
+- **Alert settings:** email and Slack on or off, and whether every level change goes out or only moves into or out of High. In-app notifications are always kept.
+
+Each `GET /api/analyze` reads the employee's checks from the last 90 days and their saved trips on the same route (either direction) before recording the new check, and returns a `personal` block next to the company assessment:
+
+| Status | When | Example |
+| --- | --- | --- |
+| `flagged` | Points are at or above the employee's tolerance line | "This trip scores 4 points. Your Cautious setting flags trips from 3 points, even though the company rates it Low." |
+| `watch` | Below the line, but this route was Medium or High for them before | "3 of your 4 past checks on this route came back Medium or High (last High on Oct 7)." |
+| `clear` | Below the line with a clean record | "Your 3 past checks on this route were all Low." |
+
+The demo seed gives `employee1@email.com` a Cautious profile, two frequent routes and a bad track record on Dallas to Orlando, so checking that route shows the memory at work.
+
 ## Risk-Change Alerts By Email And Slack
 
 When a recheck moves a saved trip to a different risk level (Low, Medium, High), the alert goes out on every channel that is set up, after the database change commits and on a background thread, so a slow mail server never slows a check. Point changes inside the same level stay in the app. Each channel is off until its environment variables are set, so local runs and tests never send anything.
@@ -407,6 +439,8 @@ When a recheck moves a saved trip to a different risk level (Low, Medium, High),
 | `TRIP_ALERT_SLACK_WEBHOOK_URL` | Post alerts to a Slack channel through an incoming webhook. |
 | `TRIP_RECHECK_INTERVAL` | Recheck every upcoming saved trip on a timer, for example `6h`. Blank turns it off. |
 | `APP_BASE_URL` | Link used in alerts. Defaults to Render's `RENDER_EXTERNAL_URL`. |
+
+Each employee can switch email or Slack off, or keep only changes into or out of High, on their profile.
 
 In the app, each notification has a **Send to email** button (shown only when a channel is set up) that sends that alert out on demand. The read-only demo admin can't use it.
 
@@ -425,7 +459,7 @@ Render resources:
 - Web service: `travel-risk-platform`
 - Postgres database: `travel-risk-platform-db`
 - Database name: `travelrisk`
-- Database tables: `saved_trips`, `trip_notifications`, `flyway_schema_history`
+- Database tables: `saved_trips`, `trip_notifications`, `assessment_history`, `user_profiles`, `user_frequent_routes`, `flyway_schema_history`
 
 Required Render environment variables:
 

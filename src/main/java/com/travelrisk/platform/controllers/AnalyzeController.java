@@ -1,6 +1,8 @@
 package com.travelrisk.platform.controllers;
 
+import com.fasterxml.jackson.annotation.JsonUnwrapped;
 import com.travelrisk.platform.service.AssessmentHistoryService;
+import com.travelrisk.platform.service.RiskMemoryService;
 import com.travelrisk.platform.service.TravelRiskService;
 import jakarta.validation.Valid;
 import java.security.Principal;
@@ -15,24 +17,30 @@ import org.springframework.web.bind.annotation.RestController;
 public class AnalyzeController {
   private final TravelRiskService service;
   private final AssessmentHistoryService historyService;
+  private final RiskMemoryService riskMemory;
 
-  public AnalyzeController(TravelRiskService service, AssessmentHistoryService historyService) {
+  public AnalyzeController(
+      TravelRiskService service, AssessmentHistoryService historyService, RiskMemoryService riskMemory) {
     this.service = service;
     this.historyService = historyService;
+    this.riskMemory = riskMemory;
   }
 
+  /** The company assessment plus a "personal" block from the employee's own risk memory. */
   @GetMapping("/api/analyze")
-  public TravelRiskService.Assessment analyze(
+  public PersonalizedAssessment analyze(
       @Valid TripQuery query,
       @RequestParam(defaultValue = "true") boolean recordHistory,
       Principal principal) {
     TravelRiskService.Assessment assessment =
         service.analyze(
             query.origin(), query.destination(), query.date(), query.mode(), query.originAirport(), query.destinationAirport());
+    // Read the memory before recording this check, so it only reflects earlier ones.
+    RiskMemoryService.Personalization personal = riskMemory.personalize(username(principal), assessment);
     if (recordHistory) {
       historyService.record(username(principal), assessment);
     }
-    return assessment;
+    return new PersonalizedAssessment(assessment, personal);
   }
 
   @PostMapping("/api/analyze/cache/refresh")
@@ -65,6 +73,9 @@ public class AnalyzeController {
             query.origin(), query.destination(), query.date(), query.mode(), query.originAirport(), query.destinationAirport());
     return service.alternatives(assessment);
   }
+
+  public record PersonalizedAssessment(
+      @JsonUnwrapped TravelRiskService.Assessment assessment, RiskMemoryService.Personalization personal) {}
 
   private String username(Principal principal) {
     return principal == null ? "anonymous" : principal.getName();
