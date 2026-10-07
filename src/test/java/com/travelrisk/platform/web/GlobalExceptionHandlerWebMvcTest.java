@@ -14,6 +14,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.travelrisk.platform.controllers.AnalyzeController;
 import com.travelrisk.platform.controllers.SavedTripController;
 import com.travelrisk.platform.service.AssessmentHistoryService;
+import com.travelrisk.platform.service.RiskMemoryService;
 import com.travelrisk.platform.service.SavedTripService;
 import com.travelrisk.platform.service.TravelRiskService;
 import org.junit.jupiter.api.Test;
@@ -37,6 +38,9 @@ class GlobalExceptionHandlerWebMvcTest {
 
   @MockitoBean
   private AssessmentHistoryService historyService;
+
+  @MockitoBean
+  private RiskMemoryService riskMemoryService;
 
   @MockitoBean
   private SavedTripService savedTripService;

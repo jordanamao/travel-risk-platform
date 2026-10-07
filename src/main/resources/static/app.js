@@ -6,6 +6,7 @@ setupSavedTrips();
 setupItineraryImport();
 setupTravelPolicy();
 setupAdminDashboard();
+setupProfilePreferences();
 setState("empty");
 
 form.addEventListener("submit", async (event) => {

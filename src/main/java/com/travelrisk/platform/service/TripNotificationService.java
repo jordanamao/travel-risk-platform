@@ -22,8 +22,8 @@ public class TripNotificationService {
     this.tripAlerts = tripAlerts;
   }
 
-  public AlertChannelsResponse channels() {
-    return new AlertChannelsResponse(tripAlerts.configuredChannels());
+  public AlertChannelsResponse channels(String username) {
+    return new AlertChannelsResponse(tripAlerts.channelsFor(username));
   }
 
   /** Sends one of the user's in-app alerts to email/Slack now. */

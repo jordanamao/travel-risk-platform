@@ -12,9 +12,12 @@
     <p class="eyebrow">Company access</p>
     <strong>Travel Risk Platform</strong>
   </div>
-  <form class="logout-form" method="post" action="/logout">
-    <button type="submit">Sign out</button>
-  </form>
+  <div class="app-nav-actions">
+    <a class="nav-link" href="/profile">Profile</a>
+    <form class="logout-form" method="post" action="/logout">
+      <button type="submit">Sign out</button>
+    </form>
+  </div>
 </header>
 <section class="admin-dashboard" aria-label="Admin dashboard">
   <div class="admin-dashboard-header">
@@ -171,6 +174,7 @@
       </div>
 
       <form id="trip-form" class="trip-form">
+        <div id="frequent-routes" class="frequent-routes hidden" aria-label="Your frequent routes"></div>
         <div class="route-fields">
           <label>
             Origin
@@ -329,6 +333,7 @@
             </div>
             <p id="risk-summary"></p>
             <div id="policy-result" class="policy-result hidden" aria-live="polite"></div>
+            <div id="personal-result" class="personal-result hidden" aria-live="polite"></div>
             <div id="top-drivers" class="top-drivers"></div>
           </div>
         </div>
@@ -499,6 +504,7 @@
 <script src="/results-rendering.js?v=alternatives"></script>
 <script src="/alternatives.js?v=alternatives"></script>
 <script src="/disruption-cost.js?v=disruption-cost"></script>
+<script src="/risk-memory.js?v=profiles"></script>
 <script src="/admin-dashboard.js?v=disruption-cost"></script>
 <script src="/results-rendering.js?v=disruption-cost"></script>
 
