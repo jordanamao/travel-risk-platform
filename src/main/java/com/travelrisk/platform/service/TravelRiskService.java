@@ -7,13 +7,16 @@ import com.travelrisk.platform.monitoring.SourceHealthMonitor;
 import java.io.StringReader;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
@@ -24,6 +27,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Predicate;
+import java.util.function.Supplier;
 import java.util.regex.Pattern;
 import jakarta.annotation.PreDestroy;
 import javax.xml.parsers.DocumentBuilderFactory;
@@ -49,6 +53,8 @@ public class TravelRiskService {
   private static final String UNAVAILABLE_STATUS = "Temporarily unavailable";
   private static final String NOT_CONFIGURED_STATUS = "Not configured";
   private static final int MAX_CACHED_GEOCODES = 500;
+  private static final Predicate<Signal> FORECAST_SIGNAL = signal -> List.of("weather", "wind").contains(signal.type());
+  private static final String FAA_STATUS_URL = "https://nasstatus.faa.gov/api/airport-status-information";
 
   private final RestClient restClient;
   private final ObjectMapper objectMapper;
@@ -240,6 +246,293 @@ public class TravelRiskService {
       String rawOriginAirport, String rawDestinationAirport) {
   }
 
+  /**
+   * "What should I do instead?" for a Medium or High check. Re-scores the same trip a day earlier or
+   * later, in the morning, afternoon or evening, and from nearby airports, with the same sources and
+   * point rules as the check itself, and returns only the options that lower the score, best first.
+   */
+  public Alternatives alternatives(Assessment base) {
+    Score current = base.score();
+    if (!"High".equals(current.level()) && !"Medium".equals(current.level())) {
+      return new Alternatives(current, List.of(), 0, "This trip is already low risk, so no alternatives were checked.");
+    }
+    Input input = base.input();
+    Route route = base.route();
+    boolean flight = "flight".equals(input.mode());
+    LocalDate date = LocalDate.parse(input.date());
+    LocalDate today = LocalDate.now(ZoneOffset.UTC);
+    LocalDate earlier = date.minusDays(1).isBefore(today) ? null : date.minusDays(1);
+    LocalDate later = date.plusDays(1).isAfter(today.plusDays(15)) ? null : date.plusDays(1);
+
+    Map<String, GeoPoint> forecastPoints = new LinkedHashMap<>();
+    forecastPoints.put("Origin forecast", route.origin());
+    forecastPoints.put("Destination forecast", route.destination());
+    forecastPoints.put("Route midpoint forecast", route.midpoint());
+    Map<String, String> places = Map.of(
+        "Origin forecast", input.origin(),
+        "Destination forecast", input.destination(),
+        "Route midpoint forecast", "Route midpoint");
+
+    // One forecast call per point covers both neighbouring days and every hour, so date and time options share it.
+    String start = (earlier == null ? date : earlier).toString();
+    String end = (later == null ? date : later).toString();
+    Map<String, CompletableFuture<Map<String, Object>>> forecastLookups = new LinkedHashMap<>();
+    forecastPoints.forEach((label, point) -> forecastLookups.put(label, lookup(() -> getForecastDays(point, start, end))));
+
+    Map<String, AirportSide> sides = new LinkedHashMap<>();
+    if (flight) {
+      sides.put("Origin", new AirportSide("Origin", route.origin(), input.originAirport()));
+      sides.put("Destination", new AirportSide("Destination", route.destination(), input.destinationAirport()));
+      sides.values().removeIf(side -> TripAlternatives.nearbyAirports(primaryAirport(side)).isEmpty());
+    }
+    CompletableFuture<Document> faaLookup = sides.isEmpty()
+        ? CompletableFuture.completedFuture(null)
+        : lookup(() -> parseXml(getString(FAA_STATUS_URL)));
+    Map<String, CompletableFuture<List<Map<String, Object>>>> metarLookups = new LinkedHashMap<>();
+    sides.forEach((name, side) -> metarLookups.put(name, lookup(() -> getList(metarUrl(side.point())))));
+
+    List<Candidate> forecastOptions = new ArrayList<>();
+    List<Candidate> airportOptions = new ArrayList<>();
+    int checked = 0;
+    Map<String, Map<String, Object>> forecasts = new LinkedHashMap<>();
+    forecastLookups.forEach((label, lookup) -> forecasts.put(label, lookup.join()));
+    if (forecasts.values().stream().allMatch(Objects::nonNull)) {
+      for (LocalDate shifted : Arrays.asList(earlier, later)) {
+        if (shifted == null) continue;
+        checked += 1;
+        Candidate option = dateAlternative(base, forecasts, places, shifted, shifted.isBefore(date));
+        if (option != null) forecastOptions.add(option);
+      }
+      checked += TripAlternatives.WINDOWS.size();
+      Candidate option = timeAlternative(base, forecasts, places);
+      if (option != null) forecastOptions.add(option);
+    }
+
+    Document faa = faaLookup.join();
+    for (Map.Entry<String, AirportSide> entry : sides.entrySet()) {
+      List<Map<String, Object>> rows = metarLookups.get(entry.getKey()).join();
+      if (faa == null || rows == null) continue;
+      AirportSide side = entry.getValue();
+      checked += TripAlternatives.nearbyAirports(primaryAirport(side)).size();
+      Candidate option = airportAlternative(base, side, rows, faa);
+      if (option != null) airportOptions.add(option);
+    }
+
+    List<Alternative> options = new ArrayList<>();
+    forecastOptions.forEach(candidate -> options.add(candidate.option()));
+    airportOptions.forEach(candidate -> options.add(candidate.option()));
+    Alternative combined = combinedAlternative(base, best(forecastOptions), best(airportOptions));
+    if (combined != null) options.add(combined);
+    options.sort(Comparator.comparingInt((Alternative option) -> option.score().points())
+        .thenComparing(Comparator.comparingInt(Alternative::pointsSaved).reversed()));
+    String note = "Each option was re-scored with the same sources and point rules as your check. "
+        + "Live airport, road, and alert data are as of right now, so they count the same for every date and time.";
+    return new Alternatives(current, options.stream().limit(4).toList(), checked, note);
+  }
+
+  private Candidate dateAlternative(Assessment base, Map<String, Map<String, Object>> forecasts, Map<String, String> places,
+      LocalDate shifted, boolean earlier) {
+    List<Signal> signals = withoutSignals(base.signals(), FORECAST_SIGNAL);
+    List<Signal> added = new ArrayList<>();
+    List<String> reasons = new ArrayList<>();
+    for (Map.Entry<String, Map<String, Object>> forecast : forecasts.entrySet()) {
+      TripAlternatives.Metrics before = TripAlternatives.dailyMetrics(forecast.getValue(), base.input().date());
+      TripAlternatives.Metrics after = TripAlternatives.dailyMetrics(forecast.getValue(), shifted.toString());
+      if (after == null) return null;
+      added.addAll(forecastSignals(forecast.getKey(), after, false));
+      if (before != null) {
+        String change = TripAlternatives.forecastChange(places.get(forecast.getKey()), before, after, false);
+        if (!change.isBlank()) reasons.add(change);
+      }
+    }
+    signals.addAll(added);
+    Score score = rescore(signals, base);
+    if (score.points() >= base.score().points()) return null;
+    if (reasons.isEmpty()) reasons.add("Fewer forecast risk signals along the route.");
+    Input input = base.input();
+    return new Candidate(new Alternative(earlier ? "earlier-day" : "later-day", earlier ? "Leave a day earlier" : "Leave a day later",
+        shifted.format(DateTimeFormatter.ofPattern("EEE, MMM d", Locale.US)),
+        new Input(input.origin(), input.destination(), shifted.toString(), input.mode(), input.originAirport(), input.destinationAirport()),
+        score, base.score().points() - score.points(), reasons, true), FORECAST_SIGNAL, added);
+  }
+
+  private Candidate timeAlternative(Assessment base, Map<String, Map<String, Object>> forecasts, Map<String, String> places) {
+    String date = base.input().date();
+    Map<TripAlternatives.Window, Score> scores = new LinkedHashMap<>();
+    Map<TripAlternatives.Window, Map<String, TripAlternatives.Metrics>> metrics = new LinkedHashMap<>();
+    Map<TripAlternatives.Window, List<Signal>> windowSignals = new LinkedHashMap<>();
+    for (TripAlternatives.Window window : TripAlternatives.WINDOWS) {
+      List<Signal> added = new ArrayList<>();
+      Map<String, TripAlternatives.Metrics> byPoint = new LinkedHashMap<>();
+      for (Map.Entry<String, Map<String, Object>> forecast : forecasts.entrySet()) {
+        TripAlternatives.Metrics windowMetrics = TripAlternatives.windowMetrics(forecast.getValue(), date, window);
+        if (windowMetrics == null) return null;
+        byPoint.put(forecast.getKey(), windowMetrics);
+        added.addAll(forecastSignals(forecast.getKey(), windowMetrics, true));
+      }
+      List<Signal> signals = withoutSignals(base.signals(), FORECAST_SIGNAL);
+      signals.addAll(added);
+      scores.put(window, rescore(signals, base));
+      metrics.put(window, byPoint);
+      windowSignals.put(window, added);
+    }
+    TripAlternatives.Window best = TripAlternatives.WINDOWS.stream()
+        .min(Comparator.comparingInt(window -> scores.get(window).points())).orElseThrow();
+    TripAlternatives.Window worst = TripAlternatives.WINDOWS.stream()
+        .max(Comparator.comparingInt(window -> scores.get(window).points())).orElseThrow();
+    // Only a real difference between parts of the day counts; a uniformly bad day is not fixed by a time change.
+    Score score = scores.get(best);
+    if (score.points() >= scores.get(worst).points() || score.points() >= base.score().points()) return null;
+    List<String> reasons = new ArrayList<>();
+    for (String label : forecasts.keySet()) {
+      String change = TripAlternatives.forecastChange(places.get(label) + " (vs " + worst.key() + ")",
+          metrics.get(worst).get(label), metrics.get(best).get(label), true);
+      if (!change.isBlank()) reasons.add(change);
+    }
+    if (reasons.isEmpty()) reasons.add("The " + worst.key() + " has the roughest forecast along the route.");
+    String title = "flight".equals(base.input().mode()) ? "Take " + article(best.key()) + " " + best.key() + " flight" : "Leave in the " + best.key();
+    String when = best.label().substring(best.label().indexOf('(') + 1, best.label().length() - 1) + ", local time";
+    return new Candidate(new Alternative("time-of-day", title, when, base.input(), score, base.score().points() - score.points(), reasons, false),
+        FORECAST_SIGNAL, windowSignals.get(best));
+  }
+
+  private Candidate airportAlternative(Assessment base, AirportSide side, List<Map<String, Object>> rows, Document faa) {
+    String primary = primaryAirport(side);
+    AirportCheck primaryCheck = airportCheck(side, primary, rows, faa, true);
+    int primaryPoints = sidePoints(primaryCheck, base);
+    Predicate<Signal> sideSignal = signal ->
+        List.of("aviation-weather", "faa-airport-status").contains(signal.type()) && signal.message().startsWith(side.name() + " ");
+    Candidate bestOption = null;
+    for (String alternate : TripAlternatives.nearbyAirports(primary)) {
+      AirportCheck check = airportCheck(side, alternate, rows, faa, false);
+      // An airport with no current observation can't be vouched for, and it must beat the planned airport on its own.
+      if (check == null || sidePoints(check, base) >= primaryPoints) continue;
+      List<Signal> signals = withoutSignals(base.signals(), sideSignal);
+      signals.addAll(check.signals());
+      Score score = rescore(signals, base);
+      if (score.points() >= base.score().points()) continue;
+      if (bestOption != null && score.points() >= bestOption.option().score().points()) continue;
+      Input input = base.input();
+      boolean origin = "Origin".equals(side.name());
+      bestOption = new Candidate(new Alternative(origin ? "origin-airport" : "destination-airport",
+          (origin ? "Fly out of " : "Fly into ") + TripAlternatives.airportName(alternate),
+          "Instead of " + TripAlternatives.airportName(primary),
+          new Input(input.origin(), input.destination(), input.date(), input.mode(),
+              origin ? alternate : input.originAirport(), origin ? input.destinationAirport() : alternate),
+          score, base.score().points() - score.points(), airportReasons(primary, primaryCheck, alternate, check), true),
+          sideSignal, check.signals());
+    }
+    return bestOption;
+  }
+
+  /** The best timing change and the best airport change together; they touch different signals, so both apply. */
+  private Alternative combinedAlternative(Assessment base, Candidate timing, Candidate airport) {
+    if (timing == null || airport == null) return null;
+    List<Signal> signals = withoutSignals(base.signals(), timing.removed().or(airport.removed()));
+    signals.addAll(timing.added());
+    signals.addAll(airport.added());
+    Score score = rescore(signals, base);
+    if (score.points() >= Math.min(timing.option().score().points(), airport.option().score().points())) return null;
+    Alternative when = timing.option();
+    Alternative where = airport.option();
+    String title = "time-of-day".equals(when.kind())
+        ? when.title() + where.title().replaceFirst("^Fly", "")
+        : where.title() + " " + when.title().replaceFirst("^Leave ", "");
+    List<String> reasons = new ArrayList<>(where.reasons());
+    reasons.addAll(when.reasons());
+    Input input = base.input();
+    return new Alternative("combined", title, when.when() + " · i" + where.when().substring(1),
+        new Input(input.origin(), input.destination(), when.input().date(), input.mode(),
+            where.input().originAirport(), where.input().destinationAirport()),
+        score, base.score().points() - score.points(), reasons, when.checkable());
+  }
+
+  private static Candidate best(List<Candidate> candidates) {
+    return candidates.stream().min(Comparator.comparingInt(candidate -> candidate.option().score().points())).orElse(null);
+  }
+
+  private static List<String> airportReasons(String primary, AirportCheck primaryCheck, String alternate, AirportCheck check) {
+    String primaryName = TripAlternatives.iata(primary);
+    String alternateName = TripAlternatives.iata(alternate);
+    List<String> reasons = new ArrayList<>();
+    if (!primaryCheck.faaEvents().isEmpty() && check.faaEvents().isEmpty()) {
+      reasons.add(alternateName + " has no FAA delays or closures; " + primaryName + " has "
+          + article(primaryCheck.faaEvents().getFirst()) + " " + String.join(" and ", primaryCheck.faaEvents()) + ".");
+    }
+    if (severityRank(check.weatherSeverity()) < severityRank(primaryCheck.weatherSeverity())) {
+      reasons.add(alternateName + " is reporting " + TripAlternatives.flightCategoryText(check.flightCategory()) + "; "
+          + primaryName + " is reporting " + TripAlternatives.flightCategoryText(primaryCheck.flightCategory()) + ".");
+    }
+    if (reasons.isEmpty()) reasons.add("Fewer live airport issues at " + alternateName + " than at " + primaryName + ".");
+    return reasons;
+  }
+
+  private AirportCheck airportCheck(AirportSide side, String icao, List<Map<String, Object>> rows, Document faa, boolean planned) {
+    Map<String, Object> observation = rows.stream()
+        .filter(row -> icao.equalsIgnoreCase(string(row.get("icaoId"))))
+        .findFirst().orElse(null);
+    if (observation == null && !planned) return null;
+    Bundle weather = metarBundle(side.point(), side.name() + " airport weather", icao, rows);
+    Bundle status = faaAirportBundle(faa, side.name() + " FAA airport status", airportIata(icao));
+    List<Signal> signals = new ArrayList<>(weather.signals());
+    signals.addAll(status.signals());
+    String category = observation == null ? "" : string(observation.get("fltCat"));
+    String weatherSeverity = observation == null ? "unknown"
+        : severityFromFlightCategory(category, observation.get("wspd"), observation.get("wgst"), observation.get("visib"));
+    List<String> faaEvents = status.evidence().stream()
+        .map(item -> string(map(item.details()).get("eventType")).toLowerCase(Locale.ROOT))
+        .filter(kind -> !kind.isBlank())
+        .distinct()
+        .toList();
+    return new AirportCheck(signals, category, weatherSeverity, faaEvents);
+  }
+
+  private int sidePoints(AirportCheck check, Assessment base) {
+    return scoreSignals(withoutSignals(check.signals(), signal -> false), base.input().mode()).points();
+  }
+
+  private String primaryAirport(AirportSide side) {
+    return firstNonBlank(side.chosenAirport(), defaultAirportFor(side.point()));
+  }
+
+  private Score rescore(List<Signal> signals, Assessment base) {
+    Score score = scoreSignals(signals, base.input().mode());
+    return "low".equals(base.score().confidence()) ? new Score(score.points(), score.level(), "low") : score;
+  }
+
+  // Fresh copies, so re-scoring never changes the points on a cached assessment's signals.
+  private static List<Signal> withoutSignals(List<Signal> signals, Predicate<Signal> removed) {
+    List<Signal> kept = new ArrayList<>();
+    for (Signal signal : signals) {
+      if (!removed.test(signal)) kept.add(new Signal(signal.type(), signal.severity(), signal.message(), signal.evidence()));
+    }
+    return kept;
+  }
+
+  private static String article(String word) {
+    return "aeiou".indexOf(Character.toLowerCase(word.charAt(0))) >= 0 ? "an" : "a";
+  }
+
+  // A failed or slow lookup leaves that option unchecked instead of failing the whole request.
+  private <T> CompletableFuture<T> lookup(Supplier<T> call) {
+    return CompletableFuture.supplyAsync(call, ioExecutor)
+        .exceptionally(error -> null)
+        .completeOnTimeout(null, sourceTimeoutMs, TimeUnit.MILLISECONDS);
+  }
+
+  private Map<String, Object> getForecastDays(GeoPoint point, String startDate, String endDate) {
+    String url = UriComponentsBuilder.fromUriString("https://api.open-meteo.com/v1/forecast")
+        .queryParam("latitude", point.lat())
+        .queryParam("longitude", point.lon())
+        .queryParam("timezone", "auto")
+        .queryParam("start_date", startDate)
+        .queryParam("end_date", endDate)
+        .queryParam("hourly", "precipitation_probability,precipitation,wind_speed_10m,wind_gusts_10m")
+        .queryParam("daily", "precipitation_sum,precipitation_probability_max,wind_speed_10m_max,wind_gusts_10m_max")
+        .toUriString();
+    return getMap(url);
+  }
+
   private GeoPoint geocode(String query) {
     String key = query.toLowerCase(Locale.ROOT);
     GeoPoint known = knownLocations.get(key);
@@ -318,15 +611,31 @@ public class TravelRiskService {
             "minTempC", tempMin),
         url));
 
-    if (value(precipProbability) >= 60 || value(precipSum) >= 10) {
-      signals.add(new Signal("weather", value(precipProbability) >= 80 || value(precipSum) >= 25 ? "high" : "medium",
-          label + " has elevated precipitation risk.", "Open-Meteo daily forecast"));
+    signals.addAll(forecastSignals(label, new TripAlternatives.Metrics(precipProbability, precipSum, windMax, gustMax), false));
+    return new Bundle(evidence, signals);
+  }
+
+  /**
+   * Forecast rules shared by the check and its alternatives. Daily data scores total precipitation;
+   * an hourly window scores the heaviest hour (2.5 mm/h is moderate rain, 7.6 mm/h is heavy).
+   */
+  static List<Signal> forecastSignals(String label, TripAlternatives.Metrics metrics, boolean hourly) {
+    List<Signal> signals = new ArrayList<>();
+    double precip = value(metrics.precipitation());
+    double probability = value(metrics.precipitationProbability());
+    double mediumPrecip = hourly ? 2.5 : 10;
+    double highPrecip = hourly ? 7.6 : 25;
+    if (probability >= 60 || precip >= mediumPrecip) {
+      signals.add(new Signal("weather", probability >= 80 || precip >= highPrecip ? "high" : "medium",
+          label + " has elevated precipitation risk.", hourly ? "Open-Meteo hourly forecast" : "Open-Meteo daily forecast"));
     }
-    if (value(windMax) >= 40 || value(gustMax) >= 55) {
-      signals.add(new Signal("wind", value(windMax) >= 55 || value(gustMax) >= 75 ? "high" : "medium",
+    double wind = value(metrics.windKmh());
+    double gust = value(metrics.gustKmh());
+    if (wind >= 40 || gust >= 55) {
+      signals.add(new Signal("wind", wind >= 55 || gust >= 75 ? "high" : "medium",
           label + " has potentially disruptive wind.", "Open-Meteo wind forecast"));
     }
-    return new Bundle(evidence, signals);
+    return signals;
   }
 
   private Bundle getNwsBundle(GeoPoint point, String label) {
@@ -415,36 +724,45 @@ public class TravelRiskService {
     Map<String, String> airports = orderedStringMap(
         "Origin FAA airport status", airportIata(firstNonBlank(originAirport, defaultAirportFor(origin))),
         "Destination FAA airport status", airportIata(firstNonBlank(destinationAirport, defaultAirportFor(destination))));
-    String url = "https://nasstatus.faa.gov/api/airport-status-information";
+    String url = FAA_STATUS_URL;
     try {
       Document document = parseXml(getString(url));
-      String updated = text(document.getDocumentElement(), "Update_Time");
       for (Map.Entry<String, String> airport : airports.entrySet()) {
-        if (airport.getValue().isBlank()) {
-          evidence.add(new Evidence("FAA NAS Status API", airport.getKey(), "unknown",
-              "FAA NAS status skipped because no airport code was available.", Map.of("location", airport.getKey()), url));
-          continue;
-        }
-        List<FaaEvent> events = faaEventsForAirport(document, airport.getValue());
-        if (events.isEmpty()) {
-          evidence.add(new Evidence("FAA NAS Status API", airport.getKey(), "low",
-              airport.getValue() + ": no active FAA NAS delay, ground stop, or closure event.",
-              orderedMap("airport", airport.getValue(), "updated", updated), url));
-          continue;
-        }
-        for (FaaEvent event : events) {
-          evidence.add(new Evidence("FAA NAS Status API", airport.getKey(), event.severity(),
-              airport.getValue() + " " + event.kind() + ": " + event.summary(),
-              orderedMap("airport", airport.getValue(), "eventType", event.kind(), "details", event.details(), "updated", updated), url));
-          signals.add(new Signal("faa-airport-status", event.severity(),
-              airport.getKey() + " has FAA NAS " + event.kind().toLowerCase(Locale.ROOT) + " at " + airport.getValue() + ".",
-              event.summary()));
-        }
+        Bundle airportStatus = faaAirportBundle(document, airport.getKey(), airport.getValue());
+        evidence.addAll(airportStatus.evidence());
+        signals.addAll(airportStatus.signals());
       }
     } catch (Exception error) {
       evidence.add(new Evidence("FAA NAS Status API", "Airport delay and closure status", "unknown",
           "FAA airport delay and closure data could not be reached during this check.",
           orderedMap("status", UNAVAILABLE_STATUS, "nextStep", "Recheck this source before departure."), url));
+    }
+    return new Bundle(evidence, signals);
+  }
+
+  private Bundle faaAirportBundle(Document document, String label, String airport) {
+    String url = FAA_STATUS_URL;
+    List<Evidence> evidence = new ArrayList<>();
+    List<Signal> signals = new ArrayList<>();
+    if (airport.isBlank()) {
+      evidence.add(new Evidence("FAA NAS Status API", label, "unknown",
+          "FAA NAS status skipped because no airport code was available.", Map.of("location", label), url));
+      return new Bundle(evidence, signals);
+    }
+    String updated = text(document.getDocumentElement(), "Update_Time");
+    List<FaaEvent> events = faaEventsForAirport(document, airport);
+    if (events.isEmpty()) {
+      evidence.add(new Evidence("FAA NAS Status API", label, "low",
+          airport + ": no active FAA NAS delay, ground stop, or closure event.",
+          orderedMap("airport", airport, "updated", updated), url));
+    }
+    for (FaaEvent event : events) {
+      evidence.add(new Evidence("FAA NAS Status API", label, event.severity(),
+          airport + " " + event.kind() + ": " + event.summary(),
+          orderedMap("airport", airport, "eventType", event.kind(), "details", event.details(), "updated", updated), url));
+      signals.add(new Signal("faa-airport-status", event.severity(),
+          label + " has FAA NAS " + event.kind().toLowerCase(Locale.ROOT) + " at " + airport + ".",
+          event.summary()));
     }
     return new Bundle(evidence, signals);
   }
@@ -504,60 +822,71 @@ public class TravelRiskService {
   }
 
   private Bundle getNearestMetars(GeoPoint point, String label, String preferredIcao) {
-    List<Evidence> evidence = new ArrayList<>();
-    List<Signal> signals = new ArrayList<>();
-    double latDelta = 1.5;
-    double lonDelta = 1.5;
-    String bbox = "%s,%s,%s,%s".formatted(point.lat() - latDelta, point.lon() - lonDelta, point.lat() + latDelta, point.lon() + lonDelta);
-    String url = UriComponentsBuilder.fromUriString("https://aviationweather.gov/api/data/metar")
-        .queryParam("bbox", bbox)
+    String url = metarUrl(point);
+    try {
+      return metarBundle(point, label, preferredIcao, getList(url));
+    } catch (Exception error) {
+      return new Bundle(List.of(new Evidence("Aviation Weather Center API", label, "unknown",
+          "Airport weather observations could not be reached during this check.",
+          orderedMap("location", point.label(), "status", UNAVAILABLE_STATUS), url)), List.of());
+    }
+  }
+
+  private static String metarUrl(GeoPoint point) {
+    return UriComponentsBuilder.fromUriString("https://aviationweather.gov/api/data/metar")
+        .queryParam("bbox", metarBbox(point))
         .queryParam("format", "json")
         .toUriString();
-    try {
-      List<Map<String, Object>> rows = getList(url);
-      List<Map<String, Object>> nearest = rows.stream()
+  }
+
+  private static String metarBbox(GeoPoint point) {
+    double delta = 1.5;
+    return "%s,%s,%s,%s".formatted(point.lat() - delta, point.lon() - delta, point.lat() + delta, point.lon() + delta);
+  }
+
+  private Bundle metarBundle(GeoPoint point, String label, String preferredIcao, List<Map<String, Object>> rows) {
+    List<Evidence> evidence = new ArrayList<>();
+    List<Signal> signals = new ArrayList<>();
+    String url = metarUrl(point);
+    String bbox = metarBbox(point);
+    List<Map<String, Object>> nearest = rows.stream()
+        .filter(row -> Double.isFinite(number(row.get("lat"))) && Double.isFinite(number(row.get("lon"))))
+        .peek(row -> row.put("distanceKm", haversineKm(point.lat(), point.lon(), number(row.get("lat")), number(row.get("lon")))))
+        .sorted(Comparator.comparingDouble(row -> number(row.get("distanceKm"))))
+        .limit(3)
+        .toList();
+    if (!preferredIcao.isBlank()) {
+      List<Map<String, Object>> preferred = rows.stream()
+          .filter(row -> preferredIcao.equalsIgnoreCase(string(row.get("icaoId"))))
           .filter(row -> Double.isFinite(number(row.get("lat"))) && Double.isFinite(number(row.get("lon"))))
           .peek(row -> row.put("distanceKm", haversineKm(point.lat(), point.lon(), number(row.get("lat")), number(row.get("lon")))))
-          .sorted(Comparator.comparingDouble(row -> number(row.get("distanceKm"))))
-          .limit(3)
+          .limit(1)
           .toList();
-      if (!preferredIcao.isBlank()) {
-        List<Map<String, Object>> preferred = rows.stream()
-            .filter(row -> preferredIcao.equalsIgnoreCase(string(row.get("icaoId"))))
-            .filter(row -> Double.isFinite(number(row.get("lat"))) && Double.isFinite(number(row.get("lon"))))
-            .peek(row -> row.put("distanceKm", haversineKm(point.lat(), point.lon(), number(row.get("lat")), number(row.get("lon")))))
-            .limit(1)
-            .toList();
-        if (!preferred.isEmpty()) nearest = preferred;
-      }
+      if (!preferred.isEmpty()) nearest = preferred;
+    }
 
-      for (Map<String, Object> metar : nearest) {
-        String severity = severityFromFlightCategory(string(metar.get("fltCat")), metar.get("wspd"), metar.get("wgst"), metar.get("visib"));
-        String station = firstNonBlank(string(metar.get("icaoId")), "Airport");
-        evidence.add(new Evidence(
-            "Aviation Weather Center API",
-            label,
-            severity,
-            station + " " + firstNonBlank(string(metar.get("fltCat")), "weather") + ": " + firstNonBlank(string(metar.get("rawOb")), "METAR observation"),
-            orderedMap("station", metar.get("icaoId"), "name", metar.get("name"), "flightCategory", metar.get("fltCat"),
-                "windKt", metar.get("wspd"), "gustKt", metar.get("wgst"), "visibilitySm", metar.get("visib"),
-                "weather", metar.get("wxString"), "distanceKm", Math.round(number(metar.get("distanceKm")))),
-            url));
-        if (List.of("medium", "high").contains(severity)) {
-          signals.add(new Signal("aviation-weather", severity,
-              label + " near " + station + ": " + firstNonBlank(string(metar.get("fltCat")), "weather") + " conditions.",
-              firstNonBlank(string(metar.get("rawOb")), station + " METAR")));
-        }
+    for (Map<String, Object> metar : nearest) {
+      String severity = severityFromFlightCategory(string(metar.get("fltCat")), metar.get("wspd"), metar.get("wgst"), metar.get("visib"));
+      String station = firstNonBlank(string(metar.get("icaoId")), "Airport");
+      evidence.add(new Evidence(
+          "Aviation Weather Center API",
+          label,
+          severity,
+          station + " " + firstNonBlank(string(metar.get("fltCat")), "weather") + ": " + firstNonBlank(string(metar.get("rawOb")), "METAR observation"),
+          orderedMap("station", metar.get("icaoId"), "name", metar.get("name"), "flightCategory", metar.get("fltCat"),
+              "windKt", metar.get("wspd"), "gustKt", metar.get("wgst"), "visibilitySm", metar.get("visib"),
+              "weather", metar.get("wxString"), "distanceKm", Math.round(number(metar.get("distanceKm")))),
+          url));
+      if (List.of("medium", "high").contains(severity)) {
+        signals.add(new Signal("aviation-weather", severity,
+            label + " near " + station + ": " + firstNonBlank(string(metar.get("fltCat")), "weather") + " conditions.",
+            firstNonBlank(string(metar.get("rawOb")), station + " METAR")));
       }
+    }
 
-      if (nearest.isEmpty()) {
-        evidence.add(new Evidence("Aviation Weather Center API", label, "unknown",
-            "No nearby METAR stations returned for " + point.label(), Map.of("bbox", bbox), url));
-      }
-    } catch (Exception error) {
+    if (nearest.isEmpty()) {
       evidence.add(new Evidence("Aviation Weather Center API", label, "unknown",
-          "Airport weather observations could not be reached during this check.",
-          orderedMap("location", point.label(), "status", UNAVAILABLE_STATUS), url));
+          "No nearby METAR stations returned for " + point.label(), Map.of("bbox", bbox), url));
     }
     return new Bundle(evidence, signals);
   }
@@ -1189,6 +1518,23 @@ public class TravelRiskService {
       this.points = points;
     }
   }
+
+  /** Safer options for a Medium or High check; {@code checked} counts every option that was re-scored. */
+  public record Alternatives(Score current, List<Alternative> options, int checked, String note) {}
+
+  /**
+   * One re-scored option. {@code input} is the trip to re-check for it, and {@code checkable} is false
+   * when the change (time of day) is not something the check form can express.
+   */
+  public record Alternative(String kind, String title, String when, Input input, Score score, int pointsSaved,
+      List<String> reasons, boolean checkable) {}
+
+  /** An option plus the signal swap behind it, so two options can be combined exactly. */
+  private record Candidate(Alternative option, Predicate<Signal> removed, List<Signal> added) {}
+
+  private record AirportSide(String name, GeoPoint point, String chosenAirport) {}
+
+  private record AirportCheck(List<Signal> signals, String flightCategory, String weatherSeverity, List<String> faaEvents) {}
 
   private record Synthesis(String summary, String recommendation, String uncertainty, Map<String, Object> ai) {
     Synthesis withAi(Map<String, Object> nextAi) {

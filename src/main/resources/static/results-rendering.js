@@ -41,7 +41,10 @@ function renderResults(data) {
 
   renderEvidence(data);
   renderPolicyResult(data);
+
+  loadAlternatives(data);
   renderDisruptionCost(data);
+
 }
 
 // The trips card fills the empty right column before a result exists, then returns under the form.

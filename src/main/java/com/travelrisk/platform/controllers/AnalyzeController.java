@@ -57,7 +57,14 @@ public class AnalyzeController {
     return Map.of("status", "evicted");
   }
 
-
+  /** "What should I do instead?": re-scored options for the same trip, reusing the cached check. */
+  @GetMapping("/api/analyze/alternatives")
+  public TravelRiskService.Alternatives alternatives(@Valid TripQuery query) {
+    TravelRiskService.Assessment assessment =
+        service.analyze(
+            query.origin(), query.destination(), query.date(), query.mode(), query.originAirport(), query.destinationAirport());
+    return service.alternatives(assessment);
+  }
 
   private String username(Principal principal) {
     return principal == null ? "anonymous" : principal.getName();
