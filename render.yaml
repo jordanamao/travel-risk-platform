@@ -26,6 +26,8 @@ services:
         sync: false
       - key: OPENAI_MODEL
         value: gpt-6-astra
+      - key: ANTHROPIC_API_KEY
+        sync: false
       - key: DEMO_DATA_ENABLED
         value: "true"
       - key: ALERT_WEBHOOK_URL

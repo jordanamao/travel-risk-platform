@@ -19,6 +19,7 @@ public class ApiMonitoringAspect {
       Map.entry("AnalyzeController.refreshAssessment", "Risk check (refresh)"),
       Map.entry("AnalyzeController.evictAssessment", "Clear cached risk check"),
       Map.entry("AnalyzeController.alternatives", "Safer alternatives"),
+      Map.entry("TripBriefController.brief", "Trip brief"),
       Map.entry("SavedTripController.list", "Load saved trips"),
       Map.entry("SavedTripController.save", "Save trip"),
       Map.entry("SavedTripController.checkAlerts", "Check trip alerts"),

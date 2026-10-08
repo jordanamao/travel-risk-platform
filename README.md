@@ -35,6 +35,7 @@ The information to prevent most of this is public, but it's spread across half a
 - **One risk score per trip, with the receipts.** A route and date go in; out comes Low / Medium / High, a points total, a confidence level, a plain-English summary and recommendation, and every signal and source that produced it. Operators can see *why*, not just a color.
 - **Eight live checks in parallel.** Forecasts at the origin, destination and route midpoint (Open-Meteo), NWS alerts at both ends, METAR airport weather, FAA NAS ground stops and delay programs, and Road511 closures.
 - **Plugs into the customer's own data.** Upload the booking export or calendar the company already has (CSV or .ics) and every trip is risk-checked and saved, with a per-row result so one bad row never blocks the rest.
+- **A trip brief written by Claude.** Each result opens with 3 or 4 plain sentences for the traveler: how risky the trip is and why, what company policy requires, what doing nothing is likely to cost, and the best safer option. Claude writes it from the same facts the page shows and is told not to invent anything; with no API key, or if Claude is slow or fails, the same facts are written out in fixed wording instead, so the result page never breaks.
 - **The customer's travel policy, as config.** A YAML rules file decides whether each trip is *Allowed*, needs a *Heads-up*, *Needs approval* or is *Blocked* (for example "High risk trips need manager approval"), so each company sets its own rules without a code change.
 
 - **The cost of doing nothing.** Every result shows an estimated cost of disruption (rebooking fee, an extra hotel night, lost working time and missed meetings) weighted by the chance of disruption at that risk level, and the admin dashboard adds it up across upcoming trips. Amounts are config, so each company uses its own figures.
@@ -67,7 +68,11 @@ flowchart LR
     end
     TRS --> SCORE[Signals → score<br/>Low / Medium / High]
     SCORE --> SUM[Summary + recommendation<br/>local or OpenAI]
+
+    C --> BRIEF[Trip brief<br/>Claude API, template fallback]
+    C --> DB[(Postgres<br/>saved_trips, trip_notifications,<br/>assessment_history)]
     C --> DB[(Postgres<br/>saved_trips, trip_notifications,<br/>assessment_history, user_profiles)]
+
     MON[API monitoring aspect] -.-> TRS
     IMP[Itinerary import<br/>CSV or .ics] --> C
     C --> POL[Travel policy<br/>YAML rules]
@@ -87,6 +92,7 @@ flowchart LR
 | In-memory rate limits and monitoring counters | No extra infrastructure for a single instance | Reset on restart and aren't shared across instances; Redis is the next step |
 | Travel policy as a YAML file, checked at startup | Each customer gets their own rules without a code change; a typo stops the app from starting instead of silently skipping a rule | A policy change needs a restart; there's no in-app policy editor yet |
 | Local summary fallback, OpenAI optional | The app works with no AI key and no AI cost | Fallback summaries are template-based |
+| Claude writes the trip brief from the page's own facts, never the score | The score stays explainable and testable; the model only puts what's already known into plain words, so it can't make a trip look safer | Briefs cost an API call per new trip (cached afterwards) and take a few seconds, so the card loads after the result |
 
 ### A real bug: one road closure feed made a flight "High risk"
 
@@ -108,7 +114,9 @@ While testing the live site, a **New York to San Francisco flight scored High (6
 - **8** live checks per assessment, run in parallel, with per-source status shown on every result.
 - **3-level** risk score with points, confidence, evidence and a recommendation.
 - **60 → 0 points** on the NY to SF flight after the road-closure fix (High → Low), with the driving case still correctly flagged Medium.
+- **101** automated tests run in CI on every push and pull request; `main` requires Maven tests and a Docker build to pass before merge.
 - **103** automated tests run in CI on every push and pull request; `main` requires Maven tests and a Docker build to pass before merge.
+
 
 - Deployed on Render with managed Postgres and five Flyway-managed tables, auto-deployed from `main`.
 
@@ -171,6 +179,10 @@ For Medium and High trips, the result re-scores the same trip a day earlier or l
 ![Company policy result on an assessment](docs/screenshots/policy-result.png)
 
 
+### Trip Brief
+
+![Trip brief at the top of a High risk result](docs/screenshots/trip-brief.png)
+
 ### Cost Of Disruption
 
 ![Estimated cost of disruption on a risk result](docs/screenshots/disruption-cost.png)
@@ -207,11 +219,26 @@ cd travel-risk-platform
 mvn test
 ```
 
+
+Expected result: `Tests run: 101, Failures: 0, Errors: 0` and `BUILD SUCCESS` (verified with `mvn test` on this branch on 2026-10-07).
 Expected result: `Tests run: 103, Failures: 0, Errors: 0` and `BUILD SUCCESS` (verified on a fresh clone of `main` on 2026-10-07).
+
 
 **Health check:** `GET /health` returns `{"status":"UP"}`; Render uses it to decide when a new deploy is live.
 
 **Operations:** [docs/RUNBOOK.md](docs/RUNBOOK.md) covers alerts, what happens when each data source is down, redeploy and rollback on Render, demo data, and every environment variable.
+
+## Trip Brief (Claude)
+
+Every result opens with a short trip brief. `GET /api/analyze/brief` (same query parameters as `/api/analyze`) reuses the cached check, adds the company policy result, the estimated cost of disruption and the safer alternatives, and sends those facts to Claude through the [Anthropic Java SDK](https://github.com/anthropics/anthropic-sdk-java). The prompt asks for 3 or 4 plain sentences that use only the facts given.
+
+| Env var | Default | Meaning |
+| --- | --- | --- |
+| `ANTHROPIC_API_KEY` | not set | Turns Claude on. Without it the built-in brief is used. |
+| `ANTHROPIC_MODEL` | `claude-opus-5-5` | Model that writes the brief. |
+| `AI_BRIEF_TIMEOUT_MS` | `15000` | How long to wait for Claude before showing the built-in brief. |
+
+The response says who wrote it: `{"text": "...", "source": "claude", "model": "claude-opus-5-5"}`, or `"source": "template"` with a `note` saying why Claude wasn't used (no key, too slow, or unavailable). The card shows **Written by Claude** or **Built-in summary** to match. Only Claude's briefs are cached, so a fallback is retried on the next view. The endpoint shares the `/api/analyze` rate limit.
 
 ## Optional AI Summary
 
@@ -348,7 +375,7 @@ Every API error returns the same JSON shape with an HTTP status code:
 
 In-process, fixed-window rate limiting protects two endpoints. Over the limit, the API returns `429` with a `Retry-After` header (seconds) and `{"error": "..."}`, and the request never reaches the controller.
 
-- `GET /api/analyze` and `GET /api/analyze/alternatives`: per authenticated user (JWT subject / session user); falls back to client IP when unauthenticated.
+- `GET /api/analyze`, `GET /api/analyze/alternatives` and `GET /api/analyze/brief`: per authenticated user (JWT subject / session user); falls back to client IP when unauthenticated.
 - `POST /api/auth/token`: per client IP, stricter, to slow down password guessing.
 
 | Property (env var) | Default | Meaning |
@@ -474,12 +501,13 @@ SPRING_CACHE_TYPE=simple
 Optional:
 
 ```text
+ANTHROPIC_API_KEY
 OPENAI_API_KEY
 OPENAI_MODEL=gpt-6-astra
 ROAD511_API_KEY
 ```
 
-`ROAD511_API_KEY` enables live road incident and closure checks. The FAA NAS airport status feed does not require an API key.
+`ANTHROPIC_API_KEY` lets Claude write the trip brief on each result. `ROAD511_API_KEY` enables live road incident and closure checks. The FAA NAS airport status feed does not require an API key.
 
 A risk check calls its outside sources in parallel. Each source gets `ANALYZE_SOURCE_TIMEOUT_MS` (default 4000) before it is reported as too slow, and the AI summary gets `ANALYZE_AI_TIMEOUT_MS` (default 6000) before the built-in summary is used instead. `HTTP_CONNECT_TIMEOUT_MS` (default 2000) and `HTTP_READ_TIMEOUT_MS` (default 5000) cap each HTTP call.
 

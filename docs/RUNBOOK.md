@@ -55,6 +55,7 @@ instead of serving stale gaps for the cache lifetime.
 | FAA NAS Status | Ground stops, delay programs, closures | No FAA signals. | Check `https://nasstatus.faa.gov`. Tell travelers to check their airline. |
 | Road511 | Road closures for driving trips | No road signals. Shows `not_configured` instead if `ROAD511_API_KEY` is not set. | Check the key is set and valid; check `https://www.road511.com`. |
 | OpenAI Responses API | Optional written summary | The built-in summary is used instead; the score is unaffected. Shows `not_configured` if `OPENAI_API_KEY` is not set. | Check the key, quota and `https://status.openai.com`. |
+| Claude (Anthropic API) | Trip brief on each result | The built-in brief is shown with a "Built-in summary" tag; the score and the rest of the page are unaffected. The app log says `Claude brief failed` or `took longer than`. | Check `ANTHROPIC_API_KEY`, the account's credits and `https://status.anthropic.com`. |
 
 Timeouts: every outbound call uses `HTTP_CONNECT_TIMEOUT_MS` (default 5000) and `HTTP_READ_TIMEOUT_MS` (default 10000),
 so one hung source can't hold a check open indefinitely.
@@ -125,6 +126,7 @@ Data sources:
 | --- | --- | --- |
 | `ROAD511_API_KEY` | empty | Enables road closure checks. |
 | `OPENAI_API_KEY`, `OPENAI_MODEL` | empty, `gpt-6-astra` | Optional AI-written summary. |
+| `ANTHROPIC_API_KEY`, `ANTHROPIC_MODEL`, `AI_BRIEF_TIMEOUT_MS` | empty, `claude-opus-5-5`, `15000` | Claude-written trip brief; without a key the built-in brief is used. |
 | `HTTP_CONNECT_TIMEOUT_MS`, `HTTP_READ_TIMEOUT_MS` | `5000`, `10000` | Outbound call timeouts. |
 
 Monitoring and alerts:

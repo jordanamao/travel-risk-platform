@@ -19,7 +19,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 /**
- * Rate limits {@code GET /api/analyze} and its alternatives per authenticated user (client IP when unauthenticated) and
+ * Rate limits {@code GET /api/analyze}, its alternatives and its brief per authenticated user (client IP when unauthenticated) and
  * {@code POST /api/auth/token} per client IP. Runs in the security chain right after the JWT filter
  * so the authenticated principal is known; a rejected request never reaches the controller.
  */
@@ -27,6 +27,7 @@ import org.springframework.web.filter.OncePerRequestFilter;
 public class RateLimitFilter extends OncePerRequestFilter {
   static final String ANALYZE_PATH = "/api/analyze";
   static final String ALTERNATIVES_PATH = "/api/analyze/alternatives";
+  static final String BRIEF_PATH = "/api/analyze/brief";
   static final String TOKEN_PATH = "/api/auth/token";
 
   private final boolean enabled;
@@ -74,7 +75,7 @@ public class RateLimitFilter extends OncePerRequestFilter {
   private FixedWindowRateLimiter limiterFor(HttpServletRequest request) {
     String method = request.getMethod();
     String path = request.getRequestURI();
-    if ((ANALYZE_PATH.equals(path) || ALTERNATIVES_PATH.equals(path)) && ("GET".equals(method) || "HEAD".equals(method))) {
+    if ((ANALYZE_PATH.equals(path) || ALTERNATIVES_PATH.equals(path) || BRIEF_PATH.equals(path)) && ("GET".equals(method) || "HEAD".equals(method))) {
       return analyzeLimiter;
     }
     if (TOKEN_PATH.equals(path) && "POST".equals(method)) {
