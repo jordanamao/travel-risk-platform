@@ -18,6 +18,17 @@ The information to prevent most of this is public, but it's spread across half a
 
 **Where it fits:** Enterprise tools like Everbridge focus on traveler safety. This focuses on whether the trip itself will be disrupted, before you book.
 
+### How it fits with existing tools
+
+This is not a replacement for a travel booking tool or a duty-of-care platform. It's a pre-trip risk layer that sits between them.
+
+| Tool | What it focuses on | How this app works with it |
+|---|---|---|
+| **Perk** (formerly TravelPerk) | Booking and spend, with trip alerts, a traveler map and 24/7 support | Trips come in from the booking side. Today that's a CSV or calendar import; pulling trips straight from the booking tool is planned. |
+| **Everbridge**, **Vismo** | Duty of care: risk monitoring, traveler location and tracking, geofencing, panic buttons and mass notification | Those tools look after travelers once they're on the road. This app answers the earlier question of whether a trip is likely to be disrupted, and why. It alerts in-app, by email and in Slack today; sending High-risk trips to the duty-of-care platform is planned. |
+
+What it adds next to them: an explainable score built from public signals, company travel-policy checks, an estimated cost of disruption, re-scored safer alternatives and a per-traveler "For you" view. It's small enough for one team to deploy and adapt to a customer quickly. *(Product focus taken from each company's own website, October 2026. Integrations marked planned are not built.)*
+
 ### Who it's for
 
 - **The buyer: a corporate travel, operations, or duty-of-care / HR lead** responsible for people on the road. They need one view of every employee's upcoming trips, which ones are at risk, what changed since yesterday, and a record that the company checked.
@@ -70,7 +81,6 @@ flowchart LR
     SCORE --> SUM[Summary + recommendation<br/>local or OpenAI]
 
     C --> BRIEF[Trip brief<br/>Claude API, template fallback]
-    C --> DB[(Postgres<br/>saved_trips, trip_notifications,<br/>assessment_history)]
     C --> DB[(Postgres<br/>saved_trips, trip_notifications,<br/>assessment_history, user_profiles)]
 
     MON[API monitoring aspect] -.-> TRS
@@ -114,8 +124,7 @@ While testing the live site, a **New York to San Francisco flight scored High (6
 - **8** live checks per assessment, run in parallel, with per-source status shown on every result.
 - **3-level** risk score with points, confidence, evidence and a recommendation.
 - **60 → 0 points** on the NY to SF flight after the road-closure fix (High → Low), with the driving case still correctly flagged Medium.
-- **101** automated tests run in CI on every push and pull request; `main` requires Maven tests and a Docker build to pass before merge.
-- **103** automated tests run in CI on every push and pull request; `main` requires Maven tests and a Docker build to pass before merge.
+- **111** automated tests run in CI on every push and pull request; `main` requires Maven tests and a Docker build to pass before merge.
 
 
 - Deployed on Render with managed Postgres and five Flyway-managed tables, auto-deployed from `main`.
@@ -220,8 +229,7 @@ mvn test
 ```
 
 
-Expected result: `Tests run: 101, Failures: 0, Errors: 0` and `BUILD SUCCESS` (verified with `mvn test` on this branch on 2026-10-07).
-Expected result: `Tests run: 103, Failures: 0, Errors: 0` and `BUILD SUCCESS` (verified on a fresh clone of `main` on 2026-10-07).
+Expected result: `Tests run: 111, Failures: 0, Errors: 0` and `BUILD SUCCESS` (verified with `mvn -B test` on `main` on 2026-10-08).
 
 
 **Health check:** `GET /health` returns `{"status":"UP"}`; Render uses it to decide when a new deploy is live.
