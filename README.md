@@ -4,6 +4,17 @@
 
 **Code:** [github.com/jordanamao/travel-risk-platform](https://github.com/jordanamao/travel-risk-platform) · **Live app:** [travel-risk-platform.onrender.com](https://travel-risk-platform.onrender.com) (employee and read-only admin demo logins [below](#production-application)) · **Demo script:** [docs/DEMO_SCRIPT.md](docs/DEMO_SCRIPT.md)
 
+## Works Alongside Everbridge, Perk And Vismo
+
+### **Not a replacement. A pre-trip risk layer that sits between booking a trip and looking after the traveler.**
+
+| Tool | What it focuses on | How this app works with it |
+|---|---|---|
+| **Perk** (formerly TravelPerk) | Booking and spend, with trip alerts, a traveler map and 24/7 support | Trips come in from the booking side. Today that's a CSV or calendar import; pulling trips straight from the booking tool is planned. |
+| **Everbridge**, **Vismo** | Duty of care: risk monitoring, traveler location and tracking, geofencing, panic buttons and mass notification | Those tools look after travelers once they're on the road. This app answers the earlier question of whether a trip is likely to be disrupted, and why. It alerts in-app, by email and in Slack today; sending High-risk trips to the duty-of-care platform is planned. |
+
+What it adds next to them: an explainable score built from public signals, company travel-policy checks, an estimated cost of disruption, re-scored safer alternatives and a per-traveler "For you" view. It's small enough for one team to deploy and adapt to a customer quickly. *(Product focus taken from each company's own website, October 2026. Integrations marked planned are not built.)*
+
 ## Case Study
 
 ### The problem
@@ -17,17 +28,6 @@ Every company that sends people on the road pays for disruptions it could have s
 The information to prevent most of this is public, but it's spread across half a dozen sites: forecasts, National Weather Service alerts, FAA airport status, aviation weather reports and state road-closure feeds. No travel desk checks all of them for every trip, so disruptions are found at the airport instead of the day before, when the trip could still be moved.
 
 **Where it fits:** Enterprise tools like Everbridge focus on traveler safety. This focuses on whether the trip itself will be disrupted, before you book.
-
-### How it fits with existing tools
-
-This is not a replacement for a travel booking tool or a duty-of-care platform. It's a pre-trip risk layer that sits between them.
-
-| Tool | What it focuses on | How this app works with it |
-|---|---|---|
-| **Perk** (formerly TravelPerk) | Booking and spend, with trip alerts, a traveler map and 24/7 support | Trips come in from the booking side. Today that's a CSV or calendar import; pulling trips straight from the booking tool is planned. |
-| **Everbridge**, **Vismo** | Duty of care: risk monitoring, traveler location and tracking, geofencing, panic buttons and mass notification | Those tools look after travelers once they're on the road. This app answers the earlier question of whether a trip is likely to be disrupted, and why. It alerts in-app, by email and in Slack today; sending High-risk trips to the duty-of-care platform is planned. |
-
-What it adds next to them: an explainable score built from public signals, company travel-policy checks, an estimated cost of disruption, re-scored safer alternatives and a per-traveler "For you" view. It's small enough for one team to deploy and adapt to a customer quickly. *(Product focus taken from each company's own website, October 2026. Integrations marked planned are not built.)*
 
 ### Who it's for
 
