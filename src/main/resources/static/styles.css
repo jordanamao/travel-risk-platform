@@ -4289,6 +4289,11 @@ summary {
     font-weight: 400;
 }
 
+.profile-form .check-row:has(input:disabled) {
+    color: var(--text-muted);
+    cursor: not-allowed;
+}
+
 .profile-radios {
     display: grid;
     gap: 8px;
