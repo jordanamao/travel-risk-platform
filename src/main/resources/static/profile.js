@@ -2,6 +2,7 @@ const profileForm = document.querySelector("#profile-form");
 const profileStatus = document.querySelector("#profile-status");
 let frequentRoutes = [];
 let suggestedRoutes = [];
+let savedNotifications = {};
 const MAX_FREQUENT_ROUTES = 5;
 
 document.querySelector("#profile-cities").append(...locationOptions.map((city) => {
@@ -39,10 +40,12 @@ function renderProfile(profile) {
   renderRouteList();
 
   const notifications = profile.notifications || {};
-  profileForm.elements.alertEmail.checked = notifications.email !== false;
-  profileForm.elements.alertSlack.checked = notifications.slack !== false;
-  profileForm.elements.alertMinLevel.value = notifications.minLevel || "any";
+  savedNotifications = notifications;
   const channels = profile.alertChannels || [];
+  // A channel the server can't send on shows unchecked and locked; saving keeps the stored choice.
+  setChannelBox(profileForm.elements.alertEmail, notifications.email !== false, channels.includes("email"));
+  setChannelBox(profileForm.elements.alertSlack, notifications.slack !== false, channels.includes("Slack"));
+  profileForm.elements.alertMinLevel.value = notifications.minLevel || "any";
   document.querySelector("#email-note").textContent = channels.includes("email")
       ? (profile.email ? `to ${profile.email}` : "to the team inbox")
       : "(not set up on this server)";
@@ -51,6 +54,15 @@ function renderProfile(profile) {
       : "(not set up on this server)";
 
   renderMemory(profile.riskMemory);
+}
+
+function setChannelBox(input, wanted, available) {
+  input.disabled = !available;
+  input.checked = available && wanted;
+}
+
+function channelValue(input, saved) {
+  return input.disabled ? saved !== false : input.checked;
 }
 
 function renderToleranceOptions(options, selected) {
@@ -184,8 +196,8 @@ async function saveProfile(event) {
     riskTolerance: profileForm.querySelector('input[name="riskTolerance"]:checked')?.value || "balanced",
     frequentRoutes,
     notifications: {
-      email: profileForm.elements.alertEmail.checked,
-      slack: profileForm.elements.alertSlack.checked,
+      email: channelValue(profileForm.elements.alertEmail, savedNotifications.email),
+      slack: channelValue(profileForm.elements.alertSlack, savedNotifications.slack),
       minLevel: profileForm.elements.alertMinLevel.value || "any"
     }
   };

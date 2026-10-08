@@ -3539,7 +3539,7 @@ summary {
         margin-top: 2px;
     }
 }
-=======
+
 /* Estimated cost of disruption */
 .estimate-tag {
     display: inline-block;
@@ -3926,7 +3926,8 @@ summary {
 
 .trip-brief-skeleton.short {
     width: 60%;
-=======
+}
+
 /* Profile link in the top bar */
 .app-nav > .app-nav-actions {
     display: flex;
@@ -4288,6 +4289,11 @@ summary {
     font-weight: 400;
 }
 
+.profile-form .check-row:has(input:disabled) {
+    color: var(--text-muted);
+    cursor: not-allowed;
+}
+
 .profile-radios {
     display: grid;
     gap: 8px;
@@ -4359,5 +4365,11 @@ summary {
 
 .app-nav-actions .nav-link,
 .app-nav-actions .logout-form button {
+    display: inline-block;
+    line-height: 1.2;
     white-space: nowrap;
+}
+
+.app-nav-actions .logout-form {
+    margin: 0;
 }
