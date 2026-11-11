@@ -13,16 +13,10 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.Executor;
-import java.util.concurrent.Executors;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.support.TransactionSynchronization;
-import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.web.server.ResponseStatusException;
 
 /**
@@ -37,12 +31,13 @@ import org.springframework.web.server.ResponseStatusException;
  * <p>Each employee's profile decides which channels carry their alerts (email, Slack) and whether
  * every level change counts or only moves into or out of High. The in-app notification is always kept.
  *
- * <p>Sending happens on a background thread after the database transaction commits, so a slow or
- * failing mail server never delays or breaks a trip check.
+ * <p>Alerts don't go out directly: they are written to the {@link TripAlertQueue} (the database
+ * outbox, {@link TripAlertOutbox}) in the same transaction as the in-app notification, and a relay
+ * sends them after the commit. A slow or failing mail server never delays or breaks a trip check,
+ * and an alert is never lost or sent for a change that was rolled back.
  */
 @Service
 public class TripAlertService {
-  private static final Logger log = LoggerFactory.getLogger(TripAlertService.class);
   static final Duration RESEND_COOLDOWN = Duration.ofMinutes(2);
 
   private final List<TripAlertChannel> channels;
@@ -50,7 +45,7 @@ public class TripAlertService {
   private final ObjectMapper objectMapper;
   private final String appUrl;
   private final String emailOverride;
-  private final Executor executor;
+  private final TripAlertQueue queue;
   private final Clock clock;
   private final Map<Long, Instant> lastResend = new ConcurrentHashMap<>();
 
@@ -60,8 +55,9 @@ public class TripAlertService {
       UserProfileRepository profiles,
       ObjectMapper objectMapper,
       @Value("${travel-risk.trip-alerts.app-url:}") String appUrl,
-      @Value("${travel-risk.trip-alerts.email.to:}") String emailOverride) {
-    this(channels, profiles, objectMapper, appUrl, emailOverride, backgroundExecutor(), Clock.systemUTC());
+      @Value("${travel-risk.trip-alerts.email.to:}") String emailOverride,
+      TripAlertQueue queue) {
+    this(channels, profiles, objectMapper, appUrl, emailOverride, queue, Clock.systemUTC());
   }
 
   TripAlertService(
@@ -70,14 +66,14 @@ public class TripAlertService {
       ObjectMapper objectMapper,
       String appUrl,
       String emailOverride,
-      Executor executor,
+      TripAlertQueue queue,
       Clock clock) {
     this.channels = channels;
     this.profiles = profiles;
     this.objectMapper = objectMapper;
     this.appUrl = appUrl == null ? "" : appUrl.trim().replaceAll("/+$", "");
     this.emailOverride = emailOverride == null ? "" : emailOverride.trim();
-    this.executor = executor;
+    this.queue = queue;
     this.clock = clock;
   }
 
@@ -95,7 +91,7 @@ public class TripAlertService {
     if (!preferences.wants(notification.getPreviousRiskLevel(), notification.getCurrentRiskLevel())) {
       return;
     }
-    dispatch(build(notification, trip), preferences);
+    dispatch(notification.getId(), TripAlertQueue.Kind.CHANGE, build(notification, trip), preferences);
   }
 
   /** The configured channels this employee has left switched on in their profile. */
@@ -128,7 +124,7 @@ public class TripAlertService {
           "This alert was just sent. Try again in a couple of minutes.");
     }
     lastResend.put(notification.getId(), now);
-    dispatch(alert, preferences);
+    dispatch(notification.getId(), TripAlertQueue.Kind.RESEND, alert, preferences);
     return targets;
   }
 
@@ -142,31 +138,8 @@ public class TripAlertService {
     return channels.stream().filter(channel -> channel.accepts(alert) && preferences.allows(channel)).toList();
   }
 
-  private void dispatch(TripAlert alert, AlertPreferences preferences) {
-    List<TripAlertChannel> targets = targets(alert, preferences);
-    if (targets.isEmpty()) {
-      return;
-    }
-    Runnable send = () -> executor.execute(() -> {
-      for (TripAlertChannel channel : targets) {
-        try {
-          channel.send(alert);
-          log.info("trip_alert_sent channel={} route=\"{}\" change=\"{}\"", channel.name(), alert.route(), alert.change());
-        } catch (RuntimeException error) {
-          log.warn("trip_alert_failed channel={} route=\"{}\" error={}", channel.name(), alert.route(), error.toString());
-        }
-      }
-    });
-    if (TransactionSynchronizationManager.isSynchronizationActive()) {
-      TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
-        @Override
-        public void afterCommit() {
-          send.run();
-        }
-      });
-    } else {
-      send.run();
-    }
+  private void dispatch(Long notificationId, TripAlertQueue.Kind kind, TripAlert alert, AlertPreferences preferences) {
+    queue.enqueue(notificationId, kind, alert, targets(alert, preferences));
   }
 
   private String recipient(String username) {
@@ -217,14 +190,5 @@ public class TripAlertService {
     } catch (Exception error) {
       return null;
     }
-  }
-
-  private static Executor backgroundExecutor() {
-    // One daemon thread: alerts go out in order and never hold up a request or shutdown.
-    return Executors.newSingleThreadExecutor(runnable -> {
-      Thread thread = new Thread(runnable, "trip-alerts");
-      thread.setDaemon(true);
-      return thread;
-    });
   }
 }

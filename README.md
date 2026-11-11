@@ -81,7 +81,9 @@ flowchart LR
     SCORE --> SUM[Summary + recommendation<br/>local or OpenAI]
 
     C --> BRIEF[Trip brief<br/>Claude API, template fallback]
-    C --> DB[(Postgres<br/>saved_trips, trip_notifications,<br/>assessment_history, user_profiles)]
+    C --> DB[(Postgres<br/>saved_trips, trip_notifications,<br/>assessment_history, user_profiles,<br/>alert_outbox)]
+    DB -->|same transaction| OUT[Alert outbox relay<br/>retry + backoff, dead letter]
+    OUT --> CH[Email / Slack]
 
     MON[API monitoring aspect] -.-> TRS
     IMP[Itinerary import<br/>CSV or .ics] --> C
@@ -102,6 +104,7 @@ flowchart LR
 | In-memory rate limits and monitoring counters | No extra infrastructure for a single instance | Reset on restart and aren't shared across instances; Redis is the next step |
 | Travel policy as a YAML file, checked at startup | Each customer gets their own rules without a code change; a typo stops the app from starting instead of silently skipping a rule | A policy change needs a restart; there's no in-app policy editor yet |
 | Local summary fallback, OpenAI optional | The app works with no AI key and no AI cost | Fallback summaries are template-based |
+| Transactional outbox for email and Slack alerts, not two-phase commit | An alert is saved in the same database transaction as the risk change, so it can't be lost on a crash or sent for a change that rolled back; email and Slack can't take part in a 2PC anyway | Delivery is at least once, so a crash right after a send can repeat one alert; rows wait up to one poll interval if the instance restarts |
 | Claude writes the trip brief from the page's own facts, never the score | The score stays explainable and testable; the model only puts what's already known into plain words, so it can't make a trip look safer | Briefs cost an API call per new trip (cached afterwards) and take a few seconds, so the card loads after the result |
 
 ### A real bug: one road closure feed made a flight "High risk"
@@ -124,10 +127,10 @@ While testing the live site, a **New York to San Francisco flight scored High (6
 - **8** live checks per assessment, run in parallel, with per-source status shown on every result.
 - **3-level** risk score with points, confidence, evidence and a recommendation.
 - **60 → 0 points** on the NY to SF flight after the road-closure fix (High → Low), with the driving case still correctly flagged Medium.
-- **111** automated tests run in CI on every push and pull request; `main` requires Maven tests and a Docker build to pass before merge.
+- **118** automated tests run in CI on every push and pull request; `main` requires Maven tests and a Docker build to pass before merge.
 
 
-- Deployed on Render with managed Postgres and five Flyway-managed tables, auto-deployed from `main`.
+- Deployed on Render with managed Postgres and six Flyway-managed tables, auto-deployed from `main`.
 
 ### Rolling it out at a company
 
@@ -229,7 +232,7 @@ mvn test
 ```
 
 
-Expected result: `Tests run: 111, Failures: 0, Errors: 0` and `BUILD SUCCESS` (verified with `mvn -B test` on `main` on 2026-10-08).
+Expected result: `Tests run: 118, Failures: 0, Errors: 0` and `BUILD SUCCESS` (verified with `mvn -B test` on 2026-11-11).
 
 
 **Health check:** `GET /health` returns `{"status":"UP"}`; Render uses it to decide when a new deploy is live.
@@ -463,7 +466,7 @@ The demo seed gives `employee1@email.com` a Cautious profile, two frequent route
 
 ## Risk-Change Alerts By Email And Slack
 
-When a recheck moves a saved trip to a different risk level (Low, Medium, High), the alert goes out on every channel that is set up, after the database change commits and on a background thread, so a slow mail server never slows a check. Point changes inside the same level stay in the app. Each channel is off until its environment variables are set, so local runs and tests never send anything.
+When a recheck moves a saved trip to a different risk level (Low, Medium, High), the alert goes out on every channel that is set up. It is written to the `alert_outbox` table in the same transaction as the change and sent after the commit on a background thread, so a slow mail server never slows a check and a failed send is retried (see [Distributed Transactions](#distributed-transactions-transactional-outbox)). Point changes inside the same level stay in the app. Each channel is off until its environment variables are set, so local runs and tests never send anything.
 
 | Variable | What it does |
 | --- | --- |
@@ -472,12 +475,40 @@ When a recheck moves a saved trip to a different risk level (Low, Medium, High),
 | `TRIP_ALERT_EMAIL_FROM` | Sender address. Defaults to `onboarding@resend.dev` for Resend, or the SMTP username. |
 | `TRIP_ALERT_EMAIL_TO` | Send every alert to this one inbox (a demo or a team list). Without it, alerts go to the email Google sign-in gave for the trip's owner; demo employee accounts have none, so they get no mail. |
 | `TRIP_ALERT_SLACK_WEBHOOK_URL` | Post alerts to a Slack channel through an incoming webhook. |
+| `ALERT_OUTBOX_POLL_INTERVAL` | How often the outbox relay looks for alerts that are due or need a retry. Defaults to `30s`. |
 | `TRIP_RECHECK_INTERVAL` | Recheck every upcoming saved trip on a timer, for example `6h`. Blank turns it off. |
 | `APP_BASE_URL` | Link used in alerts. Defaults to Render's `RENDER_EXTERNAL_URL`. |
 
 Each employee can switch email or Slack off, or keep only changes into or out of High, on their profile.
 
 In the app, each notification has a **Send to email** button (shown only when a channel is set up) that sends that alert out on demand. The read-only demo admin can't use it.
+
+## Distributed Transactions (Transactional Outbox)
+
+**What the app had before.** One Postgres database and ordinary local transactions (`@Transactional`). Saving a trip, recording a notification and updating a profile are each one ACID transaction, so they either all happen or none do. Inside the database nothing needs a distributed transaction.
+
+**Where the distributed part is.** A risk change has to do two things in two different systems: save the notification in Postgres, and tell someone by email or Slack. Those can't share one transaction. Before this change the alert was sent after the commit on an in-memory thread, so a crash, a deploy or a mail outage at the wrong moment silently lost it.
+
+**What the app does now.** It uses the **transactional outbox** pattern, the usual way to keep a database and an outside system consistent without two-phase commit:
+
+1. **Atomic enqueue.** When a recheck saves a notification, the same transaction writes one `alert_outbox` row per channel (email, Slack). If the transaction rolls back, there is no alert. If it commits, the alert is guaranteed to be on disk.
+2. **Relay after commit.** Once the transaction commits, a background relay picks up the rows, sends each one and marks it `SENT`. A scheduled poll (`ALERT_OUTBOX_POLL_INTERVAL`, default 30 seconds) also picks up anything left behind by a restart.
+3. **Retry with backoff.** A failed send stays `PENDING` and is retried after 30 seconds, then 1, 2, 4 and 8 minutes, capped at one hour. Each channel retries on its own, so a Slack outage never holds back email.
+4. **Dead letter.** After 6 failed attempts the row is parked as `FAILED` with its last error, for someone to look at, instead of retrying forever.
+5. **Idempotent enqueue.** Each row has a unique key (notification + channel), so the same change can't be queued twice.
+6. **Safe on several instances.** A worker claims a row with a conditional update and a 2-minute lease before sending, so two app instances never send the same row at once, and if a worker dies mid-send another one takes the row over when the lease ends.
+
+Delivery is **at least once**: if the app crashes after the email leaves but before the row is marked `SENT`, that alert can go out a second time. That's the honest trade-off, and a duplicate alert is far better than a lost one.
+
+| Piece | Where |
+| --- | --- |
+| Outbox table | [`V6__create_alert_outbox.sql`](src/main/resources/db/migration/V6__create_alert_outbox.sql) |
+| Enqueue and relay | [`TripAlertOutbox`](src/main/java/com/travelrisk/platform/alerts/TripAlertOutbox.java) |
+| Tests (commit, rollback, dedupe, retry, dead letter, lease takeover, backoff) | [`TripAlertOutboxTest`](src/test/java/com/travelrisk/platform/alerts/TripAlertOutboxTest.java) |
+
+**Why not two-phase commit (XA)?** Email and Slack can't join an XA transaction, XA holds locks across systems while it waits, and most managed databases and cloud services don't support it well. The outbox gets the same "nothing lost, nothing invented" result with one database.
+
+**When the app splits into services.** The same pattern scales up. Each service keeps its own database and its own outbox, a relay (or change data capture such as Debezium) publishes outbox rows to Kafka, and a multi-step business process becomes a **saga**: each service commits locally and publishes an event, and if a later step fails, earlier steps run a compensating action (for example, cancel a hold) instead of a global rollback. Consumers dedupe on the event id, since delivery is at least once.
 
 ## Deploy To Render
 

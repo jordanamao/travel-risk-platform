@@ -26,8 +26,8 @@ public class TripNotificationService {
     return new AlertChannelsResponse(tripAlerts.channelsFor(username));
   }
 
-  /** Sends one of the user's in-app alerts to email/Slack now. */
-  @Transactional(readOnly = true)
+  /** Sends one of the user's in-app alerts to email/Slack now (queued in the alert outbox). */
+  @Transactional
   public AlertChannelsResponse send(String username, Long id) {
     TripNotification notification = repository.findByIdAndUsername(id, username)
         .orElseThrow(() -> new ResourceNotFoundException("Notification not found."));
