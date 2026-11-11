@@ -183,7 +183,18 @@ class TripAlertServiceTest {
 
   private TripAlertService service(List<TripAlertChannel> channels, String override) {
     return new TripAlertService(channels, profiles, objectMapper, "https://travel-risk.example.test/", override,
-        Runnable::run, clock);
+        TripAlertServiceTest::sendNow, clock);
+  }
+
+  /** Stands in for the outbox relay: sends straight away, one channel's failure not stopping the next. */
+  private static void sendNow(Long notificationId, TripAlertQueue.Kind kind, TripAlert alert, List<TripAlertChannel> targets) {
+    for (TripAlertChannel channel : targets) {
+      try {
+        channel.send(alert);
+      } catch (RuntimeException ignored) {
+        // The real outbox records the failure and retries; see TripAlertOutboxTest.
+      }
+    }
   }
 
   private TripNotification notification(String fromLevel, int fromPoints, String toLevel, int toPoints) throws Exception {
